@@ -191,6 +191,7 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
     val messages by vm.messages.collectAsState()
     val pending by vm.pending.collectAsState()
     val history by vm.history.collectAsState()
+    val wsLive by vm.wsLive.collectAsState()
 
     LaunchedEffect(Unit) { vm.connectStreaming() }
 
@@ -206,7 +207,8 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
                 painter = painterResource(id = R.drawable.capri_avatar),
                 contentDescription = "Capri",
                 modifier = Modifier.size(40.dp).scale(pulse * 0.7f + 0.3f).clip(CircleShape))
-            Box(Modifier.size(12.dp).scale(pulse).background(Color(0xFF00E676), CircleShape))
+            Box(Modifier.size(12.dp).scale(if (wsLive) pulse else 1f).background(
+                if (wsLive) Color(0xFF00E676) else Color(0xFF8A8A8A), CircleShape))
             Text("Capricorn AI Terminal", style = MaterialTheme.typography.titleLarge)
         }
         Text("Личный лабораторный ассистент: анализирует дампы и предлагает действия "
@@ -234,14 +236,49 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
                 }
             }
         }
-        OutlinedTextField(mode, { mode = it }, label = { Text("mode") })
-        OutlinedTextField(input, { input = it }, label = { Text("raw data / question") })
-        Button(onClick = {
-            scope.launch {
-                vm.send(mode, input)
-                if (mode.startsWith("dump")) vm.sendDump(mode.removePrefix("dump:"), input)
+        OutlinedTextField(
+            input, { input = it },
+            label = { Text("скажи Capri, что сделать: «включи проектор epson»") },
+            modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.resolveIr(input) }, enabled = input.isNotBlank()) {
+                Text("Найти сигнал")
             }
-        }) { Text("Send to server") }
+            OutlinedButton(onClick = { vm.send(mode, input) }, enabled = input.isNotBlank()) {
+                Text("Спросить ИИ")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { vm.send("network_scan", "") }) {
+                Text("Сеть")
+            }
+            OutlinedButton(onClick = { vm.send("ble_scan", "") }) {
+                Text("Bluetooth")
+            }
+        }
+        OutlinedTextField(mode, { mode = it }, label = { Text("mode") })
+
+        if (history.isNotEmpty()) {
+            Text("История действий", style = MaterialTheme.typography.titleSmall,
+                 modifier = Modifier.padding(top = 4.dp))
+            LazyColumn(Modifier.heightIn(max = 180.dp)) {
+                items(history) { entry ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                        Text(entry.action + " · " + entry.outcome,
+                             style = MaterialTheme.typography.bodySmall)
+                        Text(entry.explanation.take(120),
+                             style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.secondary)
+                        if (entry.outcome.startsWith("approved") ||
+                            entry.outcome.startsWith("repeated")) {
+                            TextButton(onClick = {
+                                scope.launch { status = vm.repeat(entry, context) }
+                            }) { Text("Повторить") }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

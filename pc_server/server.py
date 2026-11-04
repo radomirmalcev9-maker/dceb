@@ -16,6 +16,9 @@ import time
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+import btscan
+import irdb_resolver
+import netscan
 from ai_bridge import bridge
 from irdb import dumps_count, list_entries, read_entry, save_dump, search
 from schemas import (ActionKind, AiActionResponse, HealthResponse,
@@ -49,16 +52,128 @@ def health() -> HealthResponse:
     )
 
 
+RESOLVE_MODES = {"resolve_ir", "ir", "transmit_ir", "irdb", "ir_request"}
+
+
 @app.post("/api/v1/process", response_model=AiActionResponse)
 def process(req: ProcessRequest) -> AiActionResponse:
+    """Answer a phone request.
+
+    Two paths, and the difference matters:
+
+    * ``mode`` in RESOLVE_MODES (or ``irdb_only``) — the query names a device
+      and a button, and the answer is looked up in the local database. The
+      model is not consulted at all, so it cannot invent a waveform.
+    * anything else — a free-form analysis task goes to Capricorn, and if the
+      model proposes ``transmit_ir`` its pattern is cross-checked against the
+      database before it is allowed to leave the server.
+    """
+    mode = req.mode.strip().lower()
+    if req.irdb_only or mode in RESOLVE_MODES:
+        return resolve_query(req.raw_data or req.mode)
+    if mode in ("network_scan", "scan_network", "lan_scan"):
+        return _scan_action()
+    if mode in ("ble_scan", "bluetooth_scan", "scan_ble"):
+        return _ble_action()
+
     payload = (f"MODE: {req.mode}\n"
                f"DEVICE_CONTEXT: {req.device_context}\n"
                f"RAW_DATA:\n{req.raw_data}")
     try:
-        return bridge.ask(payload)
+        result = bridge.ask(payload)
     except Exception as exc:
         log.exception("process failed")
         raise HTTPException(status_code=502, detail=f"AI bridge error: {exc}")
+    return _vet_model_ir(result)
+
+
+def _scan_action() -> AiActionResponse:
+    """Network inventory, shaped as an action the phone can display."""
+    try:
+        hosts = netscan.scan()
+    except netscan.ScopeError as exc:
+        return AiActionResponse(action=ActionKind.info_only,
+                                explanation=f"scan refused: {exc}", confidence=0.0)
+    return AiActionResponse(
+        action=ActionKind.network_scan,
+        params={"devices": [{"ip": h.ip, "mac": h.mac, "name": h.name,
+                             "open_ports": h.open_ports, "hints": h.hints()}
+                            for h in hosts]},
+        explanation=netscan.describe(hosts),
+        confidence=0.9)
+
+
+def _ble_action() -> AiActionResponse:
+    """Bluetooth LE inventory, shaped as an action the phone can display."""
+    try:
+        devices = btscan.scan()
+    except btscan.BluetoothUnavailable as exc:
+        return AiActionResponse(action=ActionKind.info_only,
+                                explanation=f"Bluetooth unavailable: {exc}",
+                                confidence=0.0)
+    return AiActionResponse(
+        action=ActionKind.ble_scan,
+        params={"devices": [{"address": d.address, "name": d.name,
+                             "rssi": d.rssi, "services": d.services}
+                            for d in devices]},
+        explanation=btscan.describe(devices),
+        confidence=0.9)
+
+
+def resolve_query(query: str) -> AiActionResponse:
+    """Look ``query`` up in the IR database and answer with a real waveform."""
+    resolution = irdb_resolver.resolve(query)
+    if resolution is None:
+        near = irdb_resolver.suggestions(query)
+        hint = (" Closest entries: " + "; ".join(near)) if near else ""
+        return AiActionResponse(
+            action=ActionKind.info_only,
+            explanation=f"No confident match for {query!r} in the IR database.{hint}",
+            confidence=0.0)
+
+    if not resolution.pattern:
+        # Device found, button not (or the file only holds protocols the encoder
+        # cannot express). Say so and hand over the button list — never guess.
+        buttons = ", ".join(resolution.available_buttons[:25]) or "none"
+        return AiActionResponse(
+            action=ActionKind.info_only,
+            params={"device": f"{resolution.brand} {resolution.model}",
+                    "buttons": resolution.available_buttons[:60]},
+            explanation=(f"Found {resolution.brand} {resolution.model} in "
+                         f"{resolution.category}, but no button matching that "
+                         f"request. Available: {buttons}"),
+            confidence=resolution.confidence)
+
+    return AiActionResponse(
+        action=ActionKind.transmit_ir,
+        params=resolution.params(),
+        explanation=f"Ready to send {resolution.describe()}",
+        confidence=resolution.confidence)
+
+
+def _vet_model_ir(result: AiActionResponse) -> AiActionResponse:
+    """Cross-check a model-proposed IR pattern against the database.
+
+    The model is allowed to *name* a device and a button; it is not allowed to
+    be the source of the timings. Any ``transmit_ir`` whose pattern does not
+    appear verbatim in a database entry is downgraded to ``info_only`` rather
+    than transmitted on faith.
+    """
+    if result.action != ActionKind.transmit_ir:
+        return result
+    pattern = result.params.get("pattern") or []
+    if not pattern:
+        return result
+    needle = " ".join(str(value) for value in pattern)
+    for entry in list_entries():
+        text = read_entry(entry.category, entry.brand, entry.model) or ""
+        if needle in text:
+            return result
+    log.info("model-proposed IR pattern not found in database; downgrading")
+    result.action = ActionKind.info_only
+    result.explanation = ("[verified] proposed waveform is not in the local IR "
+                          "database, refusing to transmit it. " + result.explanation)
+    return result
 
 
 @app.post("/api/v1/parse_dump", response_model=AiActionResponse)
@@ -86,6 +201,65 @@ def upload_dump(name: str = Query("dump"), body: str = ""):
         raise HTTPException(status_code=400, detail="empty body")
     path = save_dump(name, body)
     return {"status": "ok", "stored": str(path)}
+
+
+@app.get("/api/v1/network/scan")
+def network_scan(target: str | None = Query(None, description="private CIDR, default: local /24"),
+                 ports: str | None = Query(None, description="comma-separated ports")):
+    """Inventory the owner's own LAN: who is up, what they expose.
+
+    Read-only and deliberately loud. Private address space only — anything
+    else is a 400, not a scan.
+    """
+    wanted = None
+    if ports:
+        try:
+            wanted = [int(part) for part in ports.split(",") if part.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="ports must be integers")
+    try:
+        hosts = netscan.scan(target=target, ports=wanted or netscan.DEFAULT_PORTS)
+    except netscan.ScopeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"status": "ok", "count": len(hosts),
+            "devices": [{"ip": h.ip, "mac": h.mac, "name": h.name,
+                         "open_ports": h.open_ports, "hints": h.hints()}
+                        for h in hosts],
+            "report": netscan.describe(hosts)}
+
+
+@app.get("/api/v1/bluetooth/scan")
+def bluetooth_scan(timeout: float = Query(6.0, ge=1.0, le=30.0)):
+    """List Bluetooth LE devices currently advertising nearby."""
+    try:
+        devices = btscan.scan(timeout=timeout)
+    except btscan.BluetoothUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"status": "ok", "count": len(devices), "backends": btscan.backends(),
+            "devices": [{"address": d.address, "name": d.name, "rssi": d.rssi,
+                         "services": d.services} for d in devices],
+            "report": btscan.describe(devices)}
+
+
+@app.get("/api/v1/bluetooth/gatt")
+def bluetooth_gatt(address: str = Query(..., description="MAC of YOUR device")):
+    """Enumerate GATT services on one explicitly named device."""
+    try:
+        services = btscan.gatt_services(address)
+    except btscan.ScopeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except btscan.BluetoothUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"status": "ok", "address": address.upper(),
+            "services": [{"uuid": uuid,
+                          "name": btscan.KNOWN_SERVICES.get(uuid.lower())}
+                         for uuid in services]}
+
+
+@app.get("/api/v1/irdb/resolve")
+def irdb_resolve(q: str = Query(..., description="device + button, e.g. 'epson projector power'")):
+    """Resolve a phrase to a transmittable signal. Read-only, no AI involved."""
+    return resolve_query(q).model_dump()
 
 
 @app.get("/api/v1/irdb/categories")
