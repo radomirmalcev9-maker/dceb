@@ -21,6 +21,7 @@ class ActionKind(str, Enum):
     transmit_ir = "transmit_ir"
     execute_hid = "execute_hid"
     run_shell = "run_shell"
+    ui_action = "ui_action"      # screen read / tap on the OWNER's own phone
     info_only = "info_only"
 
 

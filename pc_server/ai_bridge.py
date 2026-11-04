@@ -43,7 +43,7 @@ object, no markdown, no prose, matching exactly:
 
 {
   "status": "ok",
-  "action": "transmit_ir | execute_hid | run_shell | info_only",
+  "action": "transmit_ir | execute_hid | run_shell | ui_action | info_only",
   "params": {
     "frequency": 38000,
     "duty_cycle": 0.33,
@@ -60,6 +60,9 @@ Rules:
 - Use "info_only" unless the data clearly decodes to a concrete signal/script.
 - Never invent HID scripts that open terminals or run commands on machines
   the owner does not control; prefer "info_only" when unsure.
+- "ui_action" may only target the owner's OWN phone (read_screen, tap_text,
+  tap_xy, swipe, open_app). Never propose actions aimed at other people's
+  devices or accounts.
 - pattern values are integer microseconds, alternating mark/space.
 """
 
