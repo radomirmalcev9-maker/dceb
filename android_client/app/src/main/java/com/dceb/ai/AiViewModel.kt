@@ -1,5 +1,6 @@
 package com.dceb.ai
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dceb.core.HardwareProbe
@@ -42,6 +43,9 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     private val _hw = MutableStateFlow<HardwareStatus?>(null)
     val hw: StateFlow<HardwareStatus?> = _hw
 
+    /** The line floating above Capri's head right now. */
+    private val _capriLine = MutableStateFlow<String?>(null)
+    val capriLine: StateFlow<String?> = _capriLine
     /**
      * Every proposed / approved / rejected action, newest first.
      *
@@ -94,14 +98,45 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
         }
     }
 
+    /** Recent transcript as (isUser, text) pairs, oldest first. */
+    private fun historyPayload(): List<Pair<Boolean, String>> =
+        _messages.value.takeLast(SettingsRepository.historyTurns.coerceIn(0, 60))
+            .map { it.fromUser to it.text }
+
+    /**
+     * Ask for one Capri line. Context (foreground app, hour, battery) is
+     * collected first — but only the bits the owner allowed in settings.
+     */
+    fun companionSay(context: Context) = viewModelScope.launch {
+        val snapshot = com.dceb.core.AppContextProbe.snapshot(
+            context, withApp = SettingsRepository.collectAppContext)
+        val ctx = com.dceb.core.AppContextProbe.toMap(snapshot).toMutableMap()
+        ctx["hw"] = _hw.value?.summary ?: ""
+        _capriLine.value = try {
+            val resp = net.process(
+                mode = "companion",
+                rawData = "say one short line about this moment",
+                deviceContext = ctx,
+                history = historyPayload(),
+                persona = SettingsRepository.persona.ifBlank { null },
+                temperature = SettingsRepository.temperature,
+                maxTokens = SettingsRepository.maxTokens.coerceAtMost(256))
+            val fromParams = resp.optJSONObject("params")?.optString("line").orEmpty()
+            fromParams.ifBlank { resp.optString("explanation", "") }
+        } catch (e: Exception) {
+            "сервер не отвечает, но я всё равно рядом"
+        }
+    }
+
     fun send(mode: String, rawData: String) = viewModelScope.launch {
+        val hist = historyPayload()          // prior turns, before this one
         _messages.value += ChatMessage(true, "[$mode] ${rawData.take(400)}")
         val ctx = mapOf("hw" to (_hw.value?.summary ?: ""))
         try {
             if (net.wsConnected) {
-                net.wsSend(mode, rawData, ctx)   // answer arrives via WS onMessage
+                net.wsSend(mode, rawData, ctx, hist)  // answer via WS onMessage
             } else {
-                handleServerResponse(net.process(mode, rawData, ctx))
+                handleServerResponse(net.process(mode, rawData, ctx, hist))
             }
         } catch (e: Exception) {
             _messages.value += ChatMessage(false, "error: ${e.message}")
@@ -109,12 +144,59 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     }
 
     fun sendDump(dumpType: String, rawData: String) = viewModelScope.launch {
+        val hist = historyPayload()
         _messages.value += ChatMessage(true, "[dump:$dumpType] ${rawData.take(400)}")
         try {
-            handleServerResponse(net.parseDump(dumpType, rawData, emptyMap()))
+            handleServerResponse(net.parseDump(dumpType, rawData, emptyMap(), hist))
         } catch (e: Exception) {
             _messages.value += ChatMessage(false, "error: ${e.message}")
         }
+    }
+
+    /** Send a passive Bluetooth inventory for analysis (advisory only). */
+    /** Forget the last spoken line (used when settings turn Capri off). */
+    fun clearCapriLine() {
+        _capriLine.value = null
+    }
+
+    fun sendBluetoothInventory(devices: List<com.dceb.core.BtDevice>) {
+        send("bluetooth", com.dceb.core.BtInventory.toDump(devices))
+    }
+
+    /**
+     * AUTHORIZED LAN inventory. `confirmOwner` must be true — only networks the
+     * owner controls. Returns a human-readable summary.
+     */
+    suspend fun netScan(target: String, ports: List<Int>, confirmOwner: Boolean,
+                        allowPublic: Boolean = false): String {
+        if (!confirmOwner) return "tick 'my network' first — authorized scope only"
+        return try {
+            val r = net.netScan(target, ports, confirmOwner, allowPublic)
+            val results = r.optJSONArray("results") ?: return "no results"
+            val lines = mutableListOf<String>()
+            for (i in 0 until results.length()) {
+                val h = results.getJSONObject(i)
+                val open = h.optJSONArray("open_ports")
+                val openPorts = (0 until (open?.length() ?: 0)).mapNotNull { j ->
+                    open?.optInt(j)?.takeIf { it > 0 } }
+                if (openPorts.isNotEmpty()) lines += "${h.optString("host")}: ${openPorts.joinToString()}"
+            }
+            val advice = r.optJSONObject("advice")?.optString("explanation").orEmpty()
+            (if (lines.isEmpty()) listOf("no open ports found")
+             else lines).joinToString("
+") + if (advice.isNotBlank()) "
+
+$advice" else ""
+        } catch (e: Exception) {
+            "scan failed: ${e.message}"
+        }
+    }
+
+    /** Forget the conversation on both the phone and the server. */
+    fun resetSession() = viewModelScope.launch {
+        runCatching { net.resetSession() }
+        _messages.value = emptyList()
+        _history.value = emptyList()
     }
 
     private fun handleServerResponse(resp: JSONObject) {

@@ -41,6 +41,16 @@ class UiAutomationService : AccessibilityService() {
             return sb.toString()
         }
 
+        /** Package name of the window currently in the foreground (own device). */
+        fun foregroundApp(): String? {
+            val svc = instance ?: return null
+            return try {
+                svc.rootInActiveWindow?.packageName?.toString()
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun tapText(text: String): Boolean {
             val svc = instance ?: return false
             val root = svc.rootInActiveWindow ?: return false

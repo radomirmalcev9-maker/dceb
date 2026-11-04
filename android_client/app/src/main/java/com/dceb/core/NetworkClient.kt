@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 enum class Channel(val baseUrl: String) {
@@ -17,6 +18,9 @@ enum class Channel(val baseUrl: String) {
 
 /**
  * Thin REST client for the PC server. All calls are suspend and IO-bound.
+ *
+ * Every AI call carries a `session_id` and the recent transcript so Capri keeps
+ * short-term memory across turns.
  */
 class NetworkClient {
 
@@ -28,6 +32,9 @@ class NetworkClient {
     var channel: Channel = Channel.ADB_REVERSE
     var customBaseUrl: String = ""
 
+    /** Conversation id shared by REST and WS; reset from the AI tab. */
+    var sessionId: String = UUID.randomUUID().toString()
+
     private fun base(): String =
         customBaseUrl.ifBlank { channel.baseUrl }.trimEnd('/')
 
@@ -38,13 +45,74 @@ class NetworkClient {
         }
     }
 
-    suspend fun process(mode: String, rawData: String, deviceContext: Map<String, Any>): JSONObject =
-        postJson("/api/v1/process", mapOf(
-            "mode" to mode, "raw_data" to rawData, "device_context" to deviceContext))
+    /**
+     * @param history recent transcript, oldest first (true = user turn).
+     */
+    suspend fun process(mode: String, rawData: String, deviceContext: Map<String, Any>,
+                        history: List<Pair<Boolean, String>> = emptyList(),
+                        persona: String? = null,
+                        temperature: Float? = null,
+                        maxTokens: Int? = null): JSONObject =
+        postJson("/api/v1/process", buildMap {
+            put("mode", mode)
+            put("raw_data", rawData)
+            put("device_context", deviceContext)
+            put("session_id", sessionId)
+            put("history", historyPayload(history))
+            if (!persona.isNullOrBlank()) put("persona", persona)
+            if (temperature != null) put("temperature", temperature)
+            if (maxTokens != null) put("max_tokens", maxTokens)
+        })
 
-    suspend fun parseDump(dumpType: String, rawData: String, deviceContext: Map<String, Any>): JSONObject =
+    suspend fun parseDump(dumpType: String, rawData: String, deviceContext: Map<String, Any>,
+                          history: List<Pair<Boolean, String>> = emptyList()): JSONObject =
         postJson("/api/v1/parse_dump", mapOf(
-            "dump_type" to dumpType, "raw_data" to rawData, "device_context" to deviceContext))
+            "dump_type" to dumpType, "raw_data" to rawData, "device_context" to deviceContext,
+            "session_id" to sessionId, "history" to historyPayload(history)))
+
+    /**
+     * AUTHORIZED LAN inventory. `confirmOwner` must be true — the operator
+     * states the target is theirs. Only ordinary connect() probes are used.
+     */
+    suspend fun netScan(target: String, ports: List<Int>, confirmOwner: Boolean,
+                        allowPublic: Boolean = false, grabBanner: Boolean = false,
+                        doPing: Boolean = false, maxHosts: Int = 256): JSONObject =
+        postJson("/api/v1/netscan", mapOf(
+            "target" to target, "ports" to ports, "confirm_owner" to confirmOwner,
+            "allow_public" to allowPublic, "grab_banner" to grabBanner,
+            "do_ping" to doPing, "max_hosts" to maxHosts, "session_id" to sessionId))
+
+    /** Drop the server-side transcript and start a fresh conversation. */
+    suspend fun resetSession(): JSONObject = withContext(Dispatchers.IO) {
+        val body = "{}".toRequestBody("application/json".toMediaType())
+        val req = Request.Builder()
+            .url("$base()/api/v1/session/reset?session_id=$sessionId")
+            .post(body).build()
+        http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
+    }
+
+    /** Archived chats: one entry per day (or an open session). */
+    suspend fun archivesList(): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url("$base()/api/v1/archives").get().build()
+        http.newCall(req).execute().use { r ->
+            val arr = JSONObject(r.body!!.string()).getJSONArray("archives")
+            List(arr.length()) { i ->
+                val o = arr.getJSONObject(i)
+                o.getString("name") to o.optInt("size", 0)
+            }
+        }
+    }
+
+    suspend fun archiveStats(): JSONObject = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url("$base()/api/v1/archives/stats").get().build()
+        http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
+    }
+
+    suspend fun deleteArchive(name: String): JSONObject = withContext(Dispatchers.IO) {
+        val enc = java.net.URLEncoder.encode(name, "UTF-8")
+        val req = Request.Builder().url("$base()/api/v1/archives/$enc").delete().build()
+        http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
+    }
 
     suspend fun uploadDump(name: String, content: String): JSONObject = withContext(Dispatchers.IO) {
         val body = content.toRequestBody("text/plain".toMediaType())
@@ -108,14 +176,24 @@ class NetworkClient {
             http.newCall(req).execute().use { JSONObject(it.body!!.string()).getString("content") }
         }
 
+    private fun historyPayload(history: List<Pair<Boolean, String>>): List<Map<String, String>> =
+        history.takeLast(20).map { (fromUser, text) ->
+            mapOf("role" to if (fromUser) "user" else "assistant",
+                  "content" to text.take(2000))
+        }
+
     private suspend fun postJson(path: String, map: Map<String, Any>): JSONObject =
         withContext(Dispatchers.IO) {
             val json = JSONObject(map)
             val body = json.toString().toRequestBody("application/json".toMediaType())
             val req = Request.Builder().url("$base()$path").post(body).build()
             http.newCall(req).execute().use { r ->
-                if (!r.isSuccessful) throw IllegalStateException("HTTP ${r.code}: ${r.body?.string()}")
-                JSONObject(r.body!!.string())
+                val text = r.body?.string().orEmpty()
+                if (!r.isSuccessful) {
+                    throw IllegalStateException(
+                        "HTTP ${r.code}: ${text.take(300)}")
+                }
+                JSONObject(text)
             }
         }
 
@@ -155,9 +233,17 @@ class NetworkClient {
         http.newWebSocket(Request.Builder().url(wsUrl).build(), listener)
     }
 
-    fun wsSend(mode: String, rawData: String, deviceContext: Map<String, Any>) {
-        ws?.send(JSONObject(mapOf(
-            "mode" to mode, "raw_data" to rawData, "device_context" to deviceContext)).toString())
+    fun wsSend(mode: String, rawData: String, deviceContext: Map<String, Any>,
+               history: List<Pair<Boolean, String>> = emptyList(),
+               persona: String? = null) {
+        ws?.send(JSONObject(buildMap {
+            put("mode", mode)
+            put("raw_data", rawData)
+            put("device_context", deviceContext)
+            put("session_id", sessionId)
+            put("history", historyPayload(history))
+            if (!persona.isNullOrBlank()) put("persona", persona)
+        }).toString())
     }
 
     fun disconnectWs() {

@@ -1,6 +1,8 @@
 package com.dceb.ui
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -27,8 +29,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dceb.R
 import com.dceb.ai.AiViewModel
+import com.dceb.core.BtDevice
+import com.dceb.core.BtInventory
 import com.dceb.core.Channel
 import com.dceb.core.NetworkClient
+import com.dceb.core.SettingsRepository
 import com.dceb.ir.IrParser
 import com.dceb.ir.IrTransmitter
 import com.dceb.usb.DuckyInterpreter
@@ -37,6 +42,10 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun App(context: Context, net: NetworkClient, vm: AiViewModel) {
+    SettingsRepository.init(context)
+    if (SettingsRepository.serverUrl.isNotBlank() && net.customBaseUrl.isBlank()) {
+        net.customBaseUrl = SettingsRepository.serverUrl
+    }
     val nav = rememberNavController()
     val navBackStack by nav.currentBackStackEntryFlow.collectAsState(initial = null)
 
@@ -58,21 +67,24 @@ fun App(context: Context, net: NetworkClient, vm: AiViewModel) {
             composable("ai") { AiScreen(context, vm, net) }
             composable("dashboard") {
                 DashboardScreen(
+                    context = context,
                     health = vm.health.collectAsState().value,
                     hwText = vm.hw.collectAsState().value?.summary ?: "not probed",
                     onProbe = { vm.refreshHardware(context) },
-                    onRefreshHealth = { vm.refreshHealth() })
+                    onRefreshHealth = { vm.refreshHealth() },
+                    vm = vm)
             }
             composable("ir") { IrScreen(context, net) }
             composable("hid") { HidScreen() }
-            composable("settings") { SettingsScreen(net) }
+            composable("settings") { SettingsScreen(context, net, vm) }
         }
     }
 }
 
 @Composable
-private fun DashboardScreen(health: org.json.JSONObject?, hwText: String,
-                            onProbe: () -> Unit, onRefreshHealth: () -> Unit) {
+private fun DashboardScreen(context: Context, health: org.json.JSONObject?, hwText: String,
+                            onProbe: () -> Unit, onRefreshHealth: () -> Unit,
+                            vm: AiViewModel) {
     Column(Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Do Cats Eat Bats — Device", style = MaterialTheme.typography.titleLarge)
         Button(onClick = onProbe) { Text("Probe hardware (root)") }
@@ -87,6 +99,104 @@ private fun DashboardScreen(health: org.json.JSONObject?, hwText: String,
              style = MaterialTheme.typography.bodySmall)
         Text("Server health: ${health?.toString() ?: "—"}")
         Text(hwText, style = MaterialTheme.typography.bodyMedium)
+        AuthorizedNetScanCard(vm)
+        BluetoothInventoryCard(context, vm)
+    }
+}
+
+/**
+ * Authorized LAN inventory: the operator names the range, ticks the consent
+ * box, and the server runs ordinary connect() probes. No stealth, no spread.
+ */
+@Composable
+private fun AuthorizedNetScanCard(vm: AiViewModel) {
+    val scope = rememberCoroutineScope()
+    var target by remember { mutableStateOf("192.168.1.0/24") }
+    var portsText by remember { mutableStateOf("22,80,443,445,3389,8000,8080,9100") }
+    var confirm by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf("") }
+
+    Card {
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Авторизованное сканирование сети", style = MaterialTheme.typography.titleSmall)
+            Text("Только свои подсети или стенды с письменным разрешением. "
+               + "Обычные connect()-пробы, без скрытности и без эксплойтов.",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.secondary)
+            OutlinedTextField(target, { target = it }, label = { Text("Цель (IP, CIDR, хост)") })
+            OutlinedTextField(portsText, { portsText = it }, label = { Text("Порты через запятую") })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = confirm, onCheckedChange = { confirm = it })
+                Text("Это моя сеть / есть разрешение", style = MaterialTheme.typography.bodySmall)
+            }
+            Button(enabled = confirm && !busy, onClick = {
+                val ports = portsText.split(",", " ", ";")
+                    .mapNotNull { it.trim().toIntOrNull() }.filter { it in 1..65535 }
+                scope.launch {
+                    busy = true
+                    result = vm.netScan(target.trim(), ports, confirmOwner = true)
+                    busy = false
+                }
+            }) { Text(if (busy) "Сканирую…" else "Сканировать") }
+            if (result.isNotEmpty()) Text(result, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Passive Bluetooth inventory: observe advertising devices, never touch them. */
+@Composable
+private fun BluetoothInventoryCard(context: Context, vm: AiViewModel) {
+    val scope = rememberCoroutineScope()
+    var devices by remember { mutableStateOf<List<BtDevice>>(emptyList()) }
+    var status by remember { mutableStateOf("") }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        status = if (grants[BtInventory.scanPermission()] == true)
+            "разрешение получено — жми скан" else "в разрешении отказано"
+    }
+
+    Card {
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Bluetooth-инвентарь", style = MaterialTheme.typography.titleSmall)
+            Text("Пассивное наблюдение: что рекламируется рядом. Без спаривания, "
+               + "без подключения, без чтения чужих данных.",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.secondary)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    when {
+                        !BtInventory.hasScanPermission(context) -> {
+                            val wanted = mutableListOf(BtInventory.scanPermission())
+                            BtInventory.connectPermission()?.let(wanted::add)
+                            permissionLauncher.launch(wanted.toTypedArray())
+                        }
+                        !BtInventory.bluetoothEnabled(context) ->
+                            status = "включи Bluetooth"
+                        else -> scope.launch {
+                            status = "сканирую 5 сек…"
+                            devices = BtInventory.scanLe(context, 5000L) + BtInventory.bonded(context)
+                            status = "найдено: ${devices.size}"
+                        }
+                    }
+                }) { Text("Сканировать BLE") }
+                Button(enabled = devices.isNotEmpty(), onClick = {
+                    vm.sendBluetoothInventory(devices)
+                    status = "отправлено Capri"
+                }) { Text("Capri, разбери") }
+            }
+            if (devices.isNotEmpty()) {
+                LazyColumn(Modifier.heightIn(max = 140.dp)) {
+                    items(devices) { d ->
+                        Text("${d.name ?: "unknown"} — ${d.address} "
+                           + "(rssi ${d.rssi ?: "?"}, ${d.type})",
+                             style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -182,10 +292,17 @@ private fun HidScreen() {
     }
 }
 
+private val QUICK_MODES = listOf(
+    "chat", "analyze_ir", "dmesg", "console", "nfc", "subghz",
+    "bluetooth", "netscan", "hardening", "ctf")
+
 @Composable
 private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
     val scope = rememberCoroutineScope()
+    /** What the owner asks in plain words: "включи проектор epson". */
     var input by remember { mutableStateOf("") }
+    /** Raw payload for dump analysis: timings, logs, readings. */
+    var raw by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf("analyze_ir") }
     var status by remember { mutableStateOf("") }
     val messages by vm.messages.collectAsState()
@@ -200,101 +317,110 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
         initialValue = 0.6f, targetValue = 1.4f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse")
 
-    Column(Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(
-                painter = painterResource(id = R.drawable.capri_avatar),
-                contentDescription = "Capri",
-                modifier = Modifier.size(40.dp).scale(pulse * 0.7f + 0.3f).clip(CircleShape))
-            Box(Modifier.size(12.dp).scale(if (wsLive) pulse else 1f).background(
-                if (wsLive) Color(0xFF00E676) else Color(0xFF8A8A8A), CircleShape))
-            Text("Capricorn AI Terminal", style = MaterialTheme.typography.titleLarge)
-        }
-        Text("Личный лабораторный ассистент: анализирует дампы и предлагает действия "
-           + "только на твоих устройствах — каждое действие требует подтверждения.",
-             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-        LazyColumn(Modifier.weight(1f)) {
-            items(messages) { m ->
-                Text(if (m.fromUser) "▶ ${m.text}" else "◀ ${m.text}",
-                     style = MaterialTheme.typography.bodySmall)
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(16.dp).fillMaxSize(),
+               verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Image(
+                    painter = painterResource(id = R.drawable.capri_avatar),
+                    contentDescription = "Capri",
+                    modifier = Modifier.size(40.dp).scale(pulse * 0.7f + 0.3f).clip(CircleShape))
+                Box(Modifier.size(12.dp).scale(if (wsLive) pulse else 1f).background(
+                    if (wsLive) Color(0xFF00E676) else Color(0xFF8A8A8A), CircleShape))
+                Text("Capricorn AI Terminal", style = MaterialTheme.typography.titleLarge)
             }
-        }
-        pending?.let { p ->
-            Card {
-                Column(Modifier.padding(8.dp)) {
-                    Text("Server suggests action: ${p.action}", style = MaterialTheme.typography.titleSmall)
-                    Text(p.explanation, style = MaterialTheme.typography.bodySmall)
-                    Row {
-                        Button(onClick = {
-                            // Explicit user approval — execution happens here, on tap only.
-                            scope.launch { status = vm.executePending(context) }
-                        }) { Text("Approve") }
-                        Button(onClick = { vm.dismissPending() }) { Text("Reject") }
-                    }
-                    if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall)
+            Text("Личный лабораторный ассистент: режимы, память диалога и анализ дампов "
+               + "только на твоих устройствах — каждое действие требует подтверждения.",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.secondary)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(QUICK_MODES) { m ->
+                    FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m) })
                 }
             }
-        }
-        OutlinedTextField(
-            input, { input = it },
-            label = { Text("скажи Capri, что сделать: «включи проектор epson»") },
-            modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.resolveIr(input) }, enabled = input.isNotBlank()) {
-                Text("Найти сигнал")
+            LazyColumn(Modifier.weight(1f)) {
+                items(messages) { m ->
+                    Text(if (m.fromUser) "▶ ${m.text}" else "◀ ${m.text}",
+                         style = MaterialTheme.typography.bodySmall)
+                }
             }
-            OutlinedButton(onClick = { vm.send(mode, input) }, enabled = input.isNotBlank()) {
-                Text("Спросить ИИ")
+            pending?.let { p ->
+                Card {
+                    Column(Modifier.padding(8.dp)) {
+                        Text("Server suggests action: ${p.action}",
+                             style = MaterialTheme.typography.titleSmall)
+                        Text(p.explanation, style = MaterialTheme.typography.bodySmall)
+                        Row {
+                            Button(onClick = {
+                                // Explicit user approval — execution happens here, on tap only.
+                                scope.launch { status = vm.executePending(context) }
+                            }) { Text("Approve") }
+                            Button(onClick = { vm.dismissPending() }) { Text("Reject") }
+                        }
+                        if (status.isNotEmpty()) {
+                            Text(status, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { vm.send("network_scan", "") }) {
-                Text("Сеть")
-            }
-            OutlinedButton(onClick = { vm.send("ble_scan", "") }) {
-                Text("Bluetooth")
-            }
-        }
-        OutlinedTextField(mode, { mode = it }, label = { Text("mode") })
 
-        if (history.isNotEmpty()) {
-            Text("История действий", style = MaterialTheme.typography.titleSmall,
-                 modifier = Modifier.padding(top = 4.dp))
-            LazyColumn(Modifier.heightIn(max = 180.dp)) {
-                items(history) { entry ->
-                    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                        Text(entry.action + " · " + entry.outcome,
-                             style = MaterialTheme.typography.bodySmall)
-                        Text(entry.explanation.take(120),
-                             style = MaterialTheme.typography.bodySmall,
-                             color = MaterialTheme.colorScheme.secondary)
-                        if (entry.outcome.startsWith("approved") ||
-                            entry.outcome.startsWith("repeated")) {
-                            TextButton(onClick = {
-                                scope.launch { status = vm.repeat(entry, context) }
-                            }) { Text("Повторить") }
+            OutlinedTextField(
+                input, { input = it },
+                label = { Text("скажи Capri, что сделать: «включи проектор epson»") },
+                modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.resolveIr(input) }, enabled = input.isNotBlank()) {
+                    Text("Найти сигнал")
+                }
+                OutlinedButton(onClick = { vm.send(mode, input) }, enabled = input.isNotBlank()) {
+                    Text("Спросить ИИ")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.send("network_scan", "") }) { Text("Сеть") }
+                OutlinedButton(onClick = { vm.send("ble_scan", "") }) { Text("Bluetooth") }
+                OutlinedButton(onClick = { vm.companionSay(context) }) { Text("Capri, скажи") }
+                OutlinedButton(onClick = { vm.resetSession() }) { Text("Clear memory") }
+            }
+            OutlinedTextField(raw, { raw = it }, label = { Text("raw data (дамп/тайминги)") },
+                              modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(mode, { mode = it }, label = { Text("mode") },
+                              modifier = Modifier.fillMaxWidth())
+            Button(onClick = {
+                scope.launch {
+                    if (mode.startsWith("dump")) {
+                        vm.sendDump(mode.removePrefix("dump:"), raw)
+                    } else {
+                        vm.send(mode, raw)
+                    }
+                }
+            }, enabled = raw.isNotBlank()) { Text("Отправить сырые данные") }
+
+            if (history.isNotEmpty()) {
+                Text("История действий", style = MaterialTheme.typography.titleSmall,
+                     modifier = Modifier.padding(top = 4.dp))
+                LazyColumn(Modifier.heightIn(max = 180.dp)) {
+                    items(history) { entry ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Text(entry.action + " · " + entry.outcome,
+                                 style = MaterialTheme.typography.bodySmall)
+                            Text(entry.explanation.take(120),
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.secondary)
+                            if (entry.outcome.startsWith("approved") ||
+                                entry.outcome.startsWith("repeated")) {
+                                TextButton(onClick = {
+                                    scope.launch { status = vm.repeat(entry, context) }
+                                }) { Text("Повторить") }
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsScreen(net: NetworkClient) {
-    var url by remember { mutableStateOf(net.customBaseUrl) }
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Connection channel", style = MaterialTheme.typography.titleLarge)
-        Channel.entries.forEach { ch ->
-            Row {
-                RadioButton(selected = net.channel == ch && url.isBlank(),
-                            onClick = { net.channel = ch; net.customBaseUrl = "" })
-                Text(ch.name + " — " + ch.baseUrl)
-            }
-        }
-        OutlinedTextField(url, { url = it; net.customBaseUrl = it },
-                          label = { Text("Custom base URL (LAN/Tailscale IP)") })
+        // Capri lives in the lower part of the screen, above the input row.
+        CapriCompanion(context, vm,
+                       Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(240.dp))
     }
 }
