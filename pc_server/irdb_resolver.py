@@ -549,7 +549,7 @@ def resolve(query: str, limit: int = 400) -> Optional[Resolution]:
         if pattern:
             return Resolution(
                 category=top_entry.category, brand=top_entry.brand,
-                model=top_entry.model, button=candidate["name"],
+                model=top_entry.model, button=_display_button(candidate["name"]),
                 frequency=frequency, duty_cycle=duty, pattern=pattern,
                 confidence=min(0.95, 0.5 + top_score / 40.0),
                 available_buttons=names[:40])
@@ -557,9 +557,23 @@ def resolve(query: str, limit: int = 400) -> Optional[Resolution]:
     # Device found, but no entry in the file could be turned into timings.
     return Resolution(
         category=top_entry.category, brand=top_entry.brand, model=top_entry.model,
-        button=button or "", frequency=38000, duty_cycle=0.33, pattern=[],
+        button=_display_button(button) if button else "",
+        frequency=38000, duty_cycle=0.33, pattern=[],
         confidence=min(0.6, 0.3 + top_score / 60.0),
         available_buttons=names[:40])
+
+
+def _display_button(name: str) -> str:
+    """Tidy a shouty signal name for the UI: "POWER" -> "Power".
+
+    Only ALL-CAPS names are rewritten — Flipper files shout, the projector
+    database does not. Mixed-case names like "Volume_Up" are left exactly as
+    the file spells them, because that is what a follow-up query must match.
+    """
+    if not name or not name.isupper():
+        return name
+    spaced = name.replace("_", " ").replace("-", " ").strip().title()
+    return " ".join(spaced.split())
 
 
 def suggestions(query: str, limit: int = 5) -> List[str]:
