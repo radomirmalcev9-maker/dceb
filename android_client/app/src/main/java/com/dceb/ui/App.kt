@@ -33,6 +33,7 @@ import com.dceb.core.BtDevice
 import com.dceb.core.BtInventory
 import com.dceb.core.Channel
 import com.dceb.core.NetworkClient
+import com.dceb.core.SettingsRepository
 import com.dceb.ir.IrParser
 import com.dceb.ir.IrTransmitter
 import com.dceb.usb.DuckyInterpreter
@@ -41,6 +42,10 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun App(context: Context, net: NetworkClient, vm: AiViewModel) {
+    SettingsRepository.init(context)
+    if (SettingsRepository.serverUrl.isNotBlank() && net.customBaseUrl.isBlank()) {
+        net.customBaseUrl = SettingsRepository.serverUrl
+    }
     val nav = rememberNavController()
     val navBackStack by nav.currentBackStackEntryFlow.collectAsState(initial = null)
 
@@ -71,7 +76,7 @@ fun App(context: Context, net: NetworkClient, vm: AiViewModel) {
             }
             composable("ir") { IrScreen(context, net) }
             composable("hid") { HidScreen() }
-            composable("settings") { SettingsScreen(net) }
+            composable("settings") { SettingsScreen(context, net, vm) }
         }
     }
 }
@@ -307,6 +312,7 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
         initialValue = 0.6f, targetValue = 1.4f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse")
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -357,23 +363,12 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
                 }
             }) { Text("Send to server") }
             OutlinedButton(onClick = { vm.resetSession() }) { Text("Clear memory") }
+            OutlinedButton(onClick = { vm.companionSay(context) }) { Text("Capri, скажи") }
         }
+    }
+        // Capri lives in the lower part of the screen, above the input row.
+        CapriCompanion(context, vm,
+                       Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(240.dp))
     }
 }
 
-@Composable
-private fun SettingsScreen(net: NetworkClient) {
-    var url by remember { mutableStateOf(net.customBaseUrl) }
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Connection channel", style = MaterialTheme.typography.titleLarge)
-        Channel.entries.forEach { ch ->
-            Row {
-                RadioButton(selected = net.channel == ch && url.isBlank(),
-                            onClick = { net.channel = ch; net.customBaseUrl = "" })
-                Text(ch.name + " — " + ch.baseUrl)
-            }
-        }
-        OutlinedTextField(url, { url = it; net.customBaseUrl = it },
-                          label = { Text("Custom base URL (LAN/Tailscale IP)") })
-    }
-}

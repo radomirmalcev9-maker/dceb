@@ -1,5 +1,6 @@
 package com.dceb.ai
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dceb.core.HardwareProbe
@@ -42,6 +43,10 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     private val _hw = MutableStateFlow<HardwareStatus?>(null)
     val hw: StateFlow<HardwareStatus?> = _hw
 
+    /** The line floating above Capri's head right now. */
+    private val _capriLine = MutableStateFlow<String?>(null)
+    val capriLine: StateFlow<String?> = _capriLine
+
     /** Safety switch: server actions are NEVER executed silently by default. */
     var autoApproveServerActions: Boolean = false
 
@@ -72,7 +77,33 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
 
     /** Recent transcript as (isUser, text) pairs, oldest first. */
     private fun historyPayload(): List<Pair<Boolean, String>> =
-        _messages.value.takeLast(20).map { it.fromUser to it.text }
+        _messages.value.takeLast(SettingsRepository.historyTurns.coerceIn(0, 60))
+            .map { it.fromUser to it.text }
+
+    /**
+     * Ask for one Capri line. Context (foreground app, hour, battery) is
+     * collected first — but only the bits the owner allowed in settings.
+     */
+    fun companionSay(context: Context) = viewModelScope.launch {
+        val snapshot = com.dceb.core.AppContextProbe.snapshot(
+            context, withApp = SettingsRepository.collectAppContext)
+        val ctx = com.dceb.core.AppContextProbe.toMap(snapshot).toMutableMap()
+        ctx["hw"] = _hw.value?.summary ?: ""
+        _capriLine.value = try {
+            val resp = net.process(
+                mode = "companion",
+                rawData = "say one short line about this moment",
+                deviceContext = ctx,
+                history = historyPayload(),
+                persona = SettingsRepository.persona.ifBlank { null },
+                temperature = SettingsRepository.temperature,
+                maxTokens = SettingsRepository.maxTokens.coerceAtMost(256))
+            val fromParams = resp.optJSONObject("params")?.optString("line").orEmpty()
+            fromParams.ifBlank { resp.optString("explanation", "") }
+        } catch (e: Exception) {
+            "сервер не отвечает, но я всё равно рядом"
+        }
+    }
 
     fun send(mode: String, rawData: String) = viewModelScope.launch {
         val hist = historyPayload()          // prior turns, before this one
@@ -100,6 +131,11 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     }
 
     /** Send a passive Bluetooth inventory for analysis (advisory only). */
+    /** Forget the last spoken line (used when settings turn Capri off). */
+    fun clearCapriLine() {
+        _capriLine.value = null
+    }
+
     fun sendBluetoothInventory(devices: List<com.dceb.core.BtDevice>) {
         send("bluetooth", com.dceb.core.BtInventory.toDump(devices))
     }

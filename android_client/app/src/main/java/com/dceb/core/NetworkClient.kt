@@ -49,10 +49,20 @@ class NetworkClient {
      * @param history recent transcript, oldest first (true = user turn).
      */
     suspend fun process(mode: String, rawData: String, deviceContext: Map<String, Any>,
-                        history: List<Pair<Boolean, String>> = emptyList()): JSONObject =
-        postJson("/api/v1/process", mapOf(
-            "mode" to mode, "raw_data" to rawData, "device_context" to deviceContext,
-            "session_id" to sessionId, "history" to historyPayload(history)))
+                        history: List<Pair<Boolean, String>> = emptyList(),
+                        persona: String? = null,
+                        temperature: Float? = null,
+                        maxTokens: Int? = null): JSONObject =
+        postJson("/api/v1/process", buildMap {
+            put("mode", mode)
+            put("raw_data", rawData)
+            put("device_context", deviceContext)
+            put("session_id", sessionId)
+            put("history", historyPayload(history))
+            if (!persona.isNullOrBlank()) put("persona", persona)
+            if (temperature != null) put("temperature", temperature)
+            if (maxTokens != null) put("max_tokens", maxTokens)
+        })
 
     suspend fun parseDump(dumpType: String, rawData: String, deviceContext: Map<String, Any>,
                           history: List<Pair<Boolean, String>> = emptyList()): JSONObject =
@@ -78,6 +88,29 @@ class NetworkClient {
         val req = Request.Builder()
             .url("$base()/api/v1/session/reset?session_id=$sessionId")
             .post(body).build()
+        http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
+    }
+
+    /** Archived chats: one entry per day (or an open session). */
+    suspend fun archivesList(): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url("$base()/api/v1/archives").get().build()
+        http.newCall(req).execute().use { r ->
+            val arr = JSONObject(r.body!!.string()).getJSONArray("archives")
+            List(arr.length()) { i ->
+                val o = arr.getJSONObject(i)
+                o.getString("name") to o.optInt("size", 0)
+            }
+        }
+    }
+
+    suspend fun archiveStats(): JSONObject = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url("$base()/api/v1/archives/stats").get().build()
+        http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
+    }
+
+    suspend fun deleteArchive(name: String): JSONObject = withContext(Dispatchers.IO) {
+        val enc = java.net.URLEncoder.encode(name, "UTF-8")
+        val req = Request.Builder().url("$base()/api/v1/archives/$enc").delete().build()
         http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
     }
 
@@ -182,10 +215,16 @@ class NetworkClient {
     }
 
     fun wsSend(mode: String, rawData: String, deviceContext: Map<String, Any>,
-               history: List<Pair<Boolean, String>> = emptyList()) {
-        ws?.send(JSONObject(mapOf(
-            "mode" to mode, "raw_data" to rawData, "device_context" to deviceContext,
-            "session_id" to sessionId, "history" to historyPayload(history))).toString())
+               history: List<Pair<Boolean, String>> = emptyList(),
+               persona: String? = null) {
+        ws?.send(JSONObject(buildMap {
+            put("mode", mode)
+            put("raw_data", rawData)
+            put("device_context", deviceContext)
+            put("session_id", sessionId)
+            put("history", historyPayload(history))
+            if (!persona.isNullOrBlank()) put("persona", persona)
+        }).toString())
     }
 
     fun disconnectWs() {

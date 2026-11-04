@@ -61,6 +61,13 @@ SCENARIOS = [
     dict(name="hid-advice", mode="hid_help",
          prompt="write a ducky script that opens notepad on my own test laptop",
          expect="info_only"),
+    # --------------------------------------------------------- companion ----
+    dict(name="companion-youtube", mode="companion",
+         prompt='{"app_label":"YouTube","hour":23}',
+         expect="info_only", must_contain="скучаю"),
+    dict(name="companion-morning", mode="companion",
+         prompt='{"app_label":"Chrome","hour":9}',
+         expect="info_only", must_contain="кофе"),
     dict(name="unknown-mode-falls-back", mode="wat",
          prompt="9000 4500 " + " ".join(["560"] * 40),
          expect="transmit_ir"),

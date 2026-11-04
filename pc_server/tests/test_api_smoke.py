@@ -105,3 +105,13 @@ def test_knowledge_endpoint():
 
 def test_root_lists_modes():
     assert "netscan" in client.get("/").json()["modes"]
+
+
+def test_process_accepts_generation_settings():
+    r = client.post("/api/v1/process", json={
+        "mode": "chat", "raw_data": "hello", "temperature": 0.9, "max_tokens": 256})
+    assert r.status_code == 200
+
+    bad = client.post("/api/v1/process", json={
+        "mode": "chat", "raw_data": "hello", "temperature": 9.0})
+    assert bad.status_code == 422

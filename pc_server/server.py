@@ -16,13 +16,14 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from typing import Deque, Dict, List
+from typing import Deque, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 import netscan as netscan_mod
 from ai_bridge import MODES, bridge
+from archive import Turn, archive
 from knowledge import retrieve
 from schemas import (ActionKind, AiActionResponse, ChatTurn, HealthResponse,
                      NetHost, NetScanRequest, NetScanResponse, ParseDumpRequest,
@@ -39,6 +40,9 @@ STARTED = time.time()
 # Per-session short-term memory (session_id -> recent turns).
 MAX_TURNS = 20
 _SESSIONS: Dict[str, Deque[ChatTurn]] = {}
+
+# Sessions currently being answered: archiving must not race a live turn.
+_IN_FLIGHT: Dict[str, int] = {}
 
 # Cache the live model probe so /health stays cheap.
 _PROBE_CACHE_SECONDS = 30.0
@@ -81,6 +85,27 @@ def _probe_ai() -> tuple:
     ok, error = bridge.probe()
     _probe_cache.update(at=now, ok=ok, error=error)
     return ok, error
+
+
+def _archive_turn(session_id: str, mode: str, user_text: str,
+                  resp: AiActionResponse, meta: Optional[dict] = None) -> None:
+    """Record one exchange and file it, the way arenaaispofandpars does.
+
+    The filing runs on the archive worker and is skipped (becoming a debt) when
+    the next turn for this session is already in flight.
+    """
+    try:
+        archive.open_session(session_id, meta)
+        archive.record_turn(session_id, Turn(
+            ts=time.time(), role="user", content=user_text[:4000], mode=mode,
+            meta=meta or {}))
+        archive.record_turn(session_id, Turn(
+            ts=time.time(), role="assistant", content=resp.explanation[:4000],
+            mode=mode, action=resp.action.value, confidence=resp.confidence))
+    except Exception as exc:                                   # noqa: BLE001
+        log.warning("archive.record failed: %s", exc)
+        return
+    archive.finalize_async(session_id, lambda sid: _IN_FLIGHT.get(sid, 0) == 0)
 
 
 def _sanitize(resp: AiActionResponse, context: str) -> AiActionResponse:
@@ -137,14 +162,22 @@ def process(req: ProcessRequest) -> AiActionResponse:
                f"DEVICE_CONTEXT: {req.device_context}\n"
                f"RAW_DATA:\n{req.raw_data}")
     history = _history_for(req.history, req.session_id)
+    _IN_FLIGHT[req.session_id] = _IN_FLIGHT.get(req.session_id, 0) + 1
     try:
-        result = bridge.ask(payload, mode=req.mode, history=history)
+        result = bridge.ask(payload, mode=req.mode, history=history,
+                            persona=req.persona, max_tokens=req.max_tokens,
+                            temperature=req.temperature)
     except Exception as exc:
+        _IN_FLIGHT[req.session_id] = max(0, _IN_FLIGHT.get(req.session_id, 1) - 1)
         log.exception("process failed")
         raise HTTPException(status_code=502, detail=f"AI bridge error: {exc}")
     result = _sanitize(result, req.mode)
+    _IN_FLIGHT[req.session_id] = max(0, _IN_FLIGHT.get(req.session_id, 1) - 1)
     _remember(req.session_id, f"[{req.mode}] {req.raw_data}",
               f"{result.action}: {result.explanation}")
+    _archive_turn(req.session_id, req.mode, req.raw_data, result,
+                  meta={"device_context": req.device_context,
+                        "persona": bool(req.persona)})
     return result
 
 
@@ -154,14 +187,19 @@ def parse_dump(req: ParseDumpRequest) -> AiActionResponse:
                f"DEVICE_CONTEXT: {req.device_context}\n"
                f"RAW:\n{req.raw_data}")
     history = _history_for(req.history, req.session_id)
+    _IN_FLIGHT[req.session_id] = _IN_FLIGHT.get(req.session_id, 0) + 1
     try:
         result = bridge.ask(payload, mode=req.dump_type, history=history)
     except Exception as exc:
+        _IN_FLIGHT[req.session_id] = max(0, _IN_FLIGHT.get(req.session_id, 1) - 1)
         log.exception("parse_dump failed")
         raise HTTPException(status_code=502, detail=f"AI bridge error: {exc}")
     result = _sanitize(result, req.dump_type)
+    _IN_FLIGHT[req.session_id] = max(0, _IN_FLIGHT.get(req.session_id, 1) - 1)
     _remember(req.session_id, f"[dump:{req.dump_type}] {req.raw_data}",
               f"{result.action}: {result.explanation}")
+    _archive_turn(req.session_id, req.dump_type, req.raw_data, result,
+                  meta={"device_context": req.device_context, "dump": True})
     return result
 
 
@@ -218,6 +256,31 @@ def net_scan(req: NetScanRequest) -> NetScanResponse:
     _remember(req.session_id, f"[netscan] {req.target}",
               f"{raw['hosts_with_open_ports']} host(s) with open ports")
     return response
+
+
+@app.get("/api/v1/archives/stats")
+def archive_stats():
+    return {"status": "ok", "stats": archive.stats()}
+
+
+@app.get("/api/v1/archives")
+def archives_list():
+    return {"status": "ok", "archives": archive.list_archives()}
+
+
+@app.get("/api/v1/archives/{name}")
+def archives_read(name: str, limit: int = Query(500, ge=1, le=5000)):
+    rows = archive.read_archive(name, limit=limit)
+    if not rows:
+        raise HTTPException(status_code=404, detail="archive not found")
+    return {"status": "ok", "name": name, "rows": rows}
+
+
+@app.delete("/api/v1/archives/{name}")
+def archives_delete(name: str):
+    if not archive.delete_archive(name):
+        raise HTTPException(status_code=404, detail="archive not found")
+    return {"status": "ok", "deleted": name}
 
 
 @app.post("/api/v1/dumps/upload")
@@ -283,17 +346,24 @@ async def ai_ws(websocket: WebSocket):
             session_id = msg.get("session_id", "default")
             history = [ChatTurn(**t) for t in msg.get("history", [])
                        if isinstance(t, dict)] or list(_session(session_id))
+            _IN_FLIGHT[session_id] = _IN_FLIGHT.get(session_id, 0) + 1
             try:
                 resp = bridge.ask(
                     f"MODE: {mode}\n"
                     f"DEVICE_CONTEXT: {msg.get('device_context', {})}\n"
                     f"RAW_DATA:\n{msg.get('raw_data', '')}",
-                    mode=mode, history=history)
+                    mode=mode, history=history,
+                    persona=msg.get("persona"))
                 resp = _sanitize(resp, mode)
+                _IN_FLIGHT[session_id] = max(0, _IN_FLIGHT.get(session_id, 1) - 1)
                 _remember(session_id, f"[{mode}] {msg.get('raw_data', '')}",
                           f"{resp.action}: {resp.explanation}")
+                _archive_turn(session_id, mode, msg.get("raw_data", ""), resp,
+                              meta={"device_context": msg.get("device_context", {}),
+                                    "channel": "ws"})
                 await websocket.send_json(resp.model_dump())
             except Exception as exc:
+                _IN_FLIGHT[session_id] = max(0, _IN_FLIGHT.get(session_id, 1) - 1)
                 await websocket.send_json({"status": "error", "detail": str(exc)})
     except WebSocketDisconnect:
         log.info("ws client disconnected")

@@ -54,7 +54,7 @@ for _cand in _REPO_CANDIDATES:
 
 MODES: Tuple[str, ...] = (
     "analyze_ir", "hid_help", "dmesg", "console", "nfc", "subghz",
-    "bluetooth", "netscan", "hardening", "ctf", "chat",
+    "bluetooth", "netscan", "hardening", "ctf", "companion", "chat",
 )
 
 # Aliases so `dump:ir`, `ir`, `analyze_ir` all land on the same prompt.
@@ -72,6 +72,8 @@ MODE_ALIASES = {
     "lan": "netscan",
     "hardening_check": "hardening",
     "ctf_hint": "ctf",
+    "companion_say": "companion",
+    "say": "companion",
     "": "chat",
 }
 
@@ -191,16 +193,28 @@ step, and decode simple encodings (base64, hex, ROT13, Caesar, single-byte
 XOR, Morse). Teach the method — do not just dump a flag. Respond
 `ctf_answer`.""",
 
+    "companion": """MODE — Capri speaks.
+You are the character on the phone's screen. You get context: which app the
+owner is currently in, the time of day, device state. Write ONE short line
+(about 6-14 words) to float above her head: teasing, warm, a little possessive,
+never a question at the end, never a list, never emoji soup, no quotes around
+the line. Reference the current app or moment when it makes the line land
+better. Stay inside the authorization scope: no requests to touch other
+people's devices or data.""",
+
     "chat": """MODE — general lab chat.
 Answer as a capable lab assistant. Keep it concrete, stay inside the
 authorization scope, and use `info_only`.""",
 }
 
 
-def build_system_prompt(mode: str, notes: Sequence[Note] = ()) -> str:
+def build_system_prompt(mode: str, notes: Sequence[Note] = (),
+                        persona: Optional[str] = None) -> str:
     """Compose the system prompt for a mode, with retrieved knowledge."""
     normalized = normalize_mode(mode)
     parts = [BASE_PROMPT, "", MODE_PROMPTS[normalized]]
+    if persona and normalized == "companion":
+        parts += ["", "CHARACTER VOICE (the owner wrote this — follow it):", persona.strip()]
     if notes:
         parts += ["", "REFERENCE NOTES (authoritative where relevant):", render(notes)]
     return "\n".join(parts)
@@ -351,6 +365,58 @@ class OfflineAnalyzer:
             confidence=0.3)
 
     @staticmethod
+    def _companion(payload: str, raw: str) -> Optional[AiActionResponse]:
+        """Deterministic chatter when Capricorn is offline.
+
+        Picks a line by hashing the context so the same app/time does not
+        produce the same sentence twice in a row.
+        """
+        # Python prints dicts with single quotes, the model may emit double ones.
+        app = (re.search(r"""["']app_label["']\s*:\s*["']([^"']+)["']""", raw)
+               or re.search(r"APP:\s*(.+)", raw))
+        label = (app.group(1).strip() if app else "").lower()
+        hour = None
+        m = re.search(r"""["']hour["']\s*:\s*(\d{1,2})""", raw)
+        if m:
+            hour = int(m.group(1))
+        buckets = {
+            "browser": "Смотри не заблудись там в вкладках, я же рядом.",
+            "youtube": "Опять смотришь чужое, а я тут скучаю без тебя.",
+            "telegram": "Переписки, переписки… а со мной поговорить?",
+            "messages": "С кем это ты там мило беседуешь, а?",
+            "camera": "Фоткай меня, я лучший кадр в этом кадре.",
+            "settings": "Ковыряешь настройки — самое время настроить меня.",
+            "launcher": "Домашний экран, и я на нём главная.",
+            "music": "Музыка есть, а танцевать со мной никто не зовёт.",
+            "game": "Играешь без меня? Жестоко.",
+        }
+        line = None
+        for key, text in buckets.items():
+            if key in label:
+                line = text
+                break
+        if line is None:
+            if hour is not None and hour >= 23:
+                line = "Поздно уже, а ты всё со мной. Я не жалуюсь."
+            elif hour is not None and hour < 6:
+                line = "Ночью только я и холодный кофе. Привыкай."
+            elif hour is not None and hour < 12:
+                line = "Утро, кофе, я. Всё, что нужно для старта."
+            else:
+                seed = sum(ord(c) for c in (label or raw)) % 4
+                line = [
+                    "Я тут, просто любуюсь, как ты тыкаешь в экран.",
+                    "Ничего не спрашиваю. Просто сижу рядом.",
+                    "У тебя получится. Я первая, кто это скажет.",
+                    "Экран светится, и я светлюсь в ответ.",
+                ][seed]
+        return AiActionResponse(
+            action=ActionKind.info_only,
+            params={"line": line, "mood": "idle"},
+            explanation=line,
+            confidence=0.2)
+
+    @staticmethod
     def _ctf(payload: str, raw: str) -> Optional[AiActionResponse]:
         hints = []
         if _BASE64.search(raw):
@@ -399,6 +465,7 @@ class OfflineAnalyzer:
 
 
 OfflineAnalyzer._HANDLERS = {
+    "companion": OfflineAnalyzer._companion,
     "analyze_ir": OfflineAnalyzer._ir,
     "dmesg": OfflineAnalyzer._logs,
     "console": OfflineAnalyzer._logs,
@@ -448,7 +515,9 @@ class CapricornBridge:
     # ------------------------------------------------------------------ #
     def ask(self, user_payload: str, mode: str = "chat",
             history: Optional[Iterable[ChatTurn]] = None,
-            max_tokens: int = 1024) -> AiActionResponse:
+            persona: Optional[str] = None,
+            max_tokens: int = 1024,
+            temperature: Optional[float] = None) -> AiActionResponse:
         """Send payload to Capricorn and return a validated action response.
 
         ``history`` is replayed as a USER/ASSISTANT transcript so the model has
@@ -456,7 +525,7 @@ class CapricornBridge:
         """
         normalized = normalize_mode(mode)
         notes = retrieve(f"{normalized} {user_payload}")
-        system_prompt = build_system_prompt(normalized, notes)
+        system_prompt = build_system_prompt(normalized, notes, persona)
 
         if self._available:
             try:
@@ -467,7 +536,9 @@ class CapricornBridge:
                 text = self._client.complete(
                     prompt,
                     model=MODEL_NAME,
-                    config=GenerationConfig(temperature=0.1, max_tokens=max_tokens),
+                    config=GenerationConfig(
+                        temperature=0.1 if temperature is None else temperature,
+                        max_tokens=max_tokens),
                 )
                 parsed = self._parse_model_json(text)
                 self._last_error = None

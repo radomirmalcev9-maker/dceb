@@ -17,6 +17,14 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
                      android:minSdkVersion="31" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <!-- AppContextProbe resolves the foreground app's label: launcher apps only -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
     <uses-feature android:name="android.hardware.consumerir" android:required="false" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />

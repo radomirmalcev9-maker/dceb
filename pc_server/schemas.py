@@ -57,6 +57,9 @@ class ProcessRequest(BaseModel):
     session_id: str = Field("default", description="conversation id for server-side memory")
     history: List[ChatTurn] = Field(default_factory=list,
                                     description="client-side transcript, oldest first")
+    persona: Optional[str] = Field(None, description="character voice for mode=companion")
+    temperature: float = Field(0.1, ge=0.0, le=1.5)
+    max_tokens: int = Field(1024, ge=64, le=8192)
 
 
 class ParseDumpRequest(BaseModel):
