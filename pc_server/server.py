@@ -208,16 +208,18 @@ def resolve_query(query: str) -> AiActionResponse:
     if resolution is None:
         near = irdb_resolver.suggestions(query)
         hint = (" Closest entries: " + "; ".join(near)) if near else ""
-        return AiActionResponse(
+        miss = AiActionResponse(
             action=ActionKind.info_only,
             explanation=f"No confident match for {query!r} in the IR database.{hint}",
             confidence=0.0)
+        miss._provenance = "database"
+        return miss
 
     if not resolution.pattern:
         # Device found, button not (or the file only holds protocols the encoder
         # cannot express). Say so and hand over the button list — never guess.
         buttons = ", ".join(resolution.available_buttons[:25]) or "none"
-        return AiActionResponse(
+        partial = AiActionResponse(
             action=ActionKind.info_only,
             params={"device": f"{resolution.brand} {resolution.model}",
                     "buttons": resolution.available_buttons[:60]},
@@ -225,12 +227,16 @@ def resolve_query(query: str) -> AiActionResponse:
                          f"{resolution.category}, but no button matching that "
                          f"request. Available: {buttons}"),
             confidence=resolution.confidence)
+        partial._provenance = "database"
+        return partial
 
-    return AiActionResponse(
+    answer = AiActionResponse(
         action=ActionKind.transmit_ir,
         params=resolution.params(),
         explanation=f"Ready to send {resolution.describe()}",
         confidence=resolution.confidence)
+    answer._provenance = "database"      # timings came from the IRDB itself
+    return answer
 
 
 def _vet_model_ir(result: AiActionResponse) -> AiActionResponse:
@@ -245,7 +251,7 @@ def _vet_model_ir(result: AiActionResponse) -> AiActionResponse:
     vetted: a waveform measured off the owner's own remote legitimately does
     not exist in the Flipper database.
     """
-    if getattr(result, "_provenance", "offline") != "capricorn":
+    if getattr(result, "_provenance", "unknown") in ("offline", "database"):
         return result
     if result.action != ActionKind.transmit_ir:
         return result

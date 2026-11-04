@@ -60,6 +60,9 @@ pc_server/
                      Control_2.3.apk) -> .ir файлы в irdb/Projectors/
   requirements.txt   fastapi, uvicorn, pydantic, requests
   backend.bat        Windows-лаунчер: venv, deps, adb reverse, IP, restart-loop
+startserv.bat       one-click запуск ПК-сервера (venv, deps, IRDB-импорт, adb,
+                    адреса, импорт-тест, uvicorn с автоперезапуском)
+build_apk.bat       one-click сборка APK (JDK/SDK-проверка, gradlew, установка)
   dumps/ irdb/ logs/ (gitignored, кроме .gitkeep)
 android_client/
   app/src/main/java/com/dceb/
@@ -80,10 +83,21 @@ android_client/
 
 ## Быстрый старт
 
-ПК: `cd pc_server && backend.bat` (создаст `.venv`, пробресит `adb reverse
-tcp:8000 tcp:8000`, покажет LAN/Tailscale IP). Телефон: открой приложение,
-в «Net» выбери канал `ADB_REVERSE` (или введи LAN/Tailscale URL), на дашборде
-нажми «Ping PC server».
+**ПК — один двойной клик:** `startserv.bat` в корне репозитория. Он сам
+находит Python, создаёт `pc_server/.venv`, ставит зависимости, создаёт `irdb/`,
+`dumps/`, `logs/`, `archives/`, импортирует ИК-базу из APK-доноров (если она
+пуста), поднимает `adb reverse tcp:8000 tcp:8000`, печатает LAN/Tailscale
+адреса, делает быстрый импорт-тест и запускает uvicorn с автоперезапуском.
+
+```
+startserv.bat                 # порт 8000, открыть /docs
+startserv.bat 9000            # другой порт
+startserv.bat 9000 nobrowser  # без браузера
+```
+
+Ручной путь (то же самое, но по шагам): `cd pc_server && backend.bat`.
+Телефон: открой приложение, в «Net» выбери канал `ADB_REVERSE` (или введи
+LAN/Tailscale URL), на дашборде нажми «Ping PC server».
 
 Примечание: репозиторий `arenaaispofandpars` склонирован в корень как папка
 `arenaaispofandpars/` (в .gitignore, в проект не коммитится). Импортируемый
@@ -126,23 +140,80 @@ fetch `.ir`-файла работают, `pytest tests/` → 75 passed,
 
 ## Сборка APK «Do Cats Eat Bats»
 
-На ПК с JDK 17 + Android SDK:
+### Один клик (Windows)
+
+```
+build_apk.bat                        # assembleDebug
+build_apk.bat assembleDebug install  # собрать и сразу поставить на телефон
+build_apk.bat installDebug           # одной задачей Gradle
+build_apk.bat assembleRelease        # релиз (нужна подпись)
+build_apk.bat test                   # unit-тесты
+build_apk.bat clean                  # почистить build/
+```
+
+Батник сам проверяет JDK, ищет Android SDK (`ANDROID_HOME` или
+`%LOCALAPPDATA%\Android\Sdk`), при отсутствии пишет
+`android_client/local.properties` и показывает путь до готового APK.
+
+### Что должно стоять на ПК
+
+| Что | Версия | Проверка |
+|---|---|---|
+| JDK | 17 | `java -version` |
+| Android SDK | platform 34, build-tools 34 | `echo %ANDROID_HOME%` |
+| Gradle | не нужен — есть wrapper 8.10.2 | `gradlew --version` |
+
+Если SDK не найден: создай `android_client/local.properties` вручную —
+
+```
+sdk.dir=C\:\\Users\\Тебя\\AppData\\Local\\Android\\Sdk
+```
+
+### Команды вручную (Windows)
 
 ```
 cd android_client
-./gradlew assembleDebug        # Linux/macOS
-gradlew.bat assembleDebug      # Windows
+
+gradlew.bat assembleDebug                       # собрать debug APK
+gradlew.bat installDebug                        # собрать и установить
+gradlew.bat assembleRelease                     # релизная сборка (нужна подпись)
+gradlew.bat clean                               # очистить build/
+gradlew.bat test                                # unit-тесты (IrParserTest)
+gradlew.bat tasks                               # все доступные задачи
+gradlew.bat assembleDebug --info                # подробный лог, если что-то пало
+
+adb install -r app\build\outputs\apk\debug\app-debug.apk   # поставить на телефон
+adb logcat | findstr /i dceb                    # смотреть логи приложения
 ```
 
-Готовый APK: `android_client/app/build/outputs/apk/debug/app-debug.apk`
-(имя приложения — «Do Cats Eat Bats», см. `res/values/strings.xml`). Gradle
-обёрнут в wrapper (`gradlew` + `gradle/wrapper/`, Gradle 8.10.2) — отдельная
-установка Gradle не нужна. Установка на рутованный телефон:
-`adb install app/build/outputs/apk/debug/app-debug.apk`.
+### Команды вручную (Linux/macOS)
 
-Самопроверка в этом sandbox: `pytest tests/` → 9 passed, WS `/ws/v1/ai` отвечает,
-Kotlin-файлы проверены на баланс скобок (Android SDK здесь недоступен,
-поэтому APK здесь не собирался — собирайте на своём ПК по инструкции выше).
+```
+cd android_client
+./gradlew assembleDebug
+./gradlew installDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Куда падает результат
+
+- debug: `android_client/app/build/outputs/apk/debug/app-debug.apk`
+- release: `android_client/app/build/outputs/apk/release/app-release.apk`
+
+Имя приложения — «Do Cats Eat Bats» (`res/values/strings.xml`).
+
+### Если сборка падает
+
+| Симптом | Что делать |
+|---|---|
+| `SDK location not found` | `local.properties` с `sdk.dir=` или переменная `ANDROID_HOME` |
+| `Unsupported class file major version` | стоит не JDK 17 — переключи `JAVA_HOME` |
+| `Could not resolve com.android...` | нет сети при первой сборке или off-line режим Gradle |
+| `INSTALL_FAILED` | на телефоне включена отладка по USB / разрешена установка |
+
+Проверка в этом sandbox: `pytest tests/` → 108 passed (16 skipped без
+импортированной IRDB), `evals/run_eval.py` → 16/16. Android SDK здесь нет,
+поэтому APK собирается только на твоём ПК.
 
 ## Обучение Capri: режимы, память, оценка
 

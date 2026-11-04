@@ -94,9 +94,10 @@ class AiActionResponse(BaseModel):
     explanation: str = ""
     confidence: float = Field(0.0, ge=0.0, le=1.0)
 
-    # Where the answer came from. "capricorn" means the language model wrote
-    # it (so its waveforms get vetted); anything else is deterministic code.
-    _provenance: str = PrivateAttr(default="offline")
+    # Where the answer came from. Waveforms get vetted unless the answer is
+    # deterministic: "offline" (offline analyzer) and "database" (resolved
+    # from the local IRDB) are trusted, "capricorn" and "unknown" are not.
+    _provenance: str = PrivateAttr(default="unknown")
 
     @field_validator("params")
     @classmethod
