@@ -54,6 +54,25 @@ class NetworkClient {
         http.newCall(req).execute().use { JSONObject(it.body!!.string()) }
     }
 
+    /**
+     * Ask the server to resolve a device+button phrase to a stored waveform.
+     *
+     * Deliberately separate from [process]: this path never touches the AI
+     * model. The server answers with `transmit_ir` only when a matching entry
+     * exists in the IR database, otherwise `info_only` plus the button list.
+     */
+    suspend fun resolveIr(query: String): JSONObject = withContext(Dispatchers.IO) {
+        val enc = java.net.URLEncoder.encode(query, "UTF-8")
+        val req = Request.Builder().url("$base()/api/v1/irdb/resolve?q=$enc").get().build()
+        http.newCall(req).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}: ${body.take(200)}")
+            }
+            JSONObject(body)
+        }
+    }
+
     suspend fun irdbCategories(): List<String> = withContext(Dispatchers.IO) {
         val req = Request.Builder().url("$base()/api/v1/irdb/categories").get().build()
         http.newCall(req).execute().use { r ->

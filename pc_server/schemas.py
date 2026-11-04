@@ -22,6 +22,8 @@ class ActionKind(str, Enum):
     execute_hid = "execute_hid"
     run_shell = "run_shell"
     ui_action = "ui_action"      # screen read / tap on the OWNER's own phone
+    network_scan = "network_scan"  # read-only inventory of the owner's LAN
+    ble_scan = "ble_scan"          # read-only Bluetooth LE inventory
     info_only = "info_only"
 
 
@@ -29,6 +31,10 @@ class ProcessRequest(BaseModel):
     mode: str = Field(..., description="free-form task mode, e.g. 'analyze_ir', 'hid_help'")
     raw_data: str = Field("", description="raw payload: timings, logs, dump text")
     device_context: dict = Field(default_factory=dict)
+    # When true the server must NOT consult the language model: it resolves
+    # straight from the IR database and returns "no match" honestly. Used by
+    # the phone's "send exactly this" path and by tests.
+    irdb_only: bool = Field(False, description="resolve from the local DB only")
 
 
 class ParseDumpRequest(BaseModel):
