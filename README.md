@@ -100,3 +100,23 @@ fetch `.ir`-файла работают, `pytest tests/` → 9 passed.
   rejected/повторённые действия; в UI — чипы с кнопкой повтора (user-initiated).
 - **Медиа Capri**: кадры видео из `capri_media/frames/` — промо-ролики персонажа
   (неоновый glitch-аватар в чат-UI), используются как аватар AI-вкладки.
+
+## Сборка APK «Do Cats Eat Bats»
+
+На ПК с JDK 17 + Android SDK:
+
+```
+cd android_client
+./gradlew assembleDebug        # Linux/macOS
+gradlew.bat assembleDebug      # Windows
+```
+
+Готовый APK: `android_client/app/build/outputs/apk/debug/app-debug.apk`
+(имя приложения — «Do Cats Eat Bats», см. `res/values/strings.xml`). Gradle
+обёрнут в wrapper (`gradlew` + `gradle/wrapper/`, Gradle 8.10.2) — отдельная
+установка Gradle не нужна. Установка на рутованный телефон:
+`adb install app/build/outputs/apk/debug/app-debug.apk`.
+
+Самопроверка в этом sandbox: `pytest tests/` → 9 passed, WS `/ws/v1/ai` отвечает,
+Kotlin-файлы проверены на баланс скобок (Android SDK здесь недоступен,
+поэтому APK здесь не собирался — собирайте на своём ПК по инструкции выше).
