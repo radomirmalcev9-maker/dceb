@@ -4,3 +4,5 @@ pydantic>=2.6
 requests>=2.31
 # Private package — install from your own index/wheel, NOT public PyPI:
 # arenaaispofandpars
+# Bluetooth LE inventory (optional: without it, bluetoothctl is used)
+bleak>=0.21

@@ -46,6 +46,19 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     /** The line floating above Capri's head right now. */
     private val _capriLine = MutableStateFlow<String?>(null)
     val capriLine: StateFlow<String?> = _capriLine
+    /**
+     * Every proposed / approved / rejected action, newest first.
+     *
+     * This is the audit trail the UI shows and the repeat button reads from.
+     * It was referenced five times before it existed, which is why the app did
+     * not compile.
+     */
+    private val _history = MutableStateFlow<List<HistoryEntry>>(emptyList())
+    val history: StateFlow<List<HistoryEntry>> = _history
+
+    /** Stream connection state, surfaced in the AI tab header. */
+    private val _wsLive = MutableStateFlow(false)
+    val wsLive: StateFlow<Boolean> = _wsLive
 
     /** Safety switch: server actions are NEVER executed silently by default. */
     var autoApproveServerActions: Boolean = false
@@ -62,17 +75,27 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     fun connectStreaming() {
         net.connectWs(
             onMessage = { resp ->
-                val action = resp.optString("action", "info_only")
-                _messages.value += ChatMessage(false, "$action — ${resp.optString("explanation", "")}")
-                if (action != "info_only") {
-                    val p = PendingAction(action, resp.optJSONObject("params") ?: JSONObject(),
-                                          resp.optString("explanation", ""))
-                    _pending.value = p
-                    _history.value = listOf(HistoryEntry(System.currentTimeMillis(), action,
-                        p.explanation, p.params, "proposed")) + _history.value
-                }
+                handleServerResponse(resp)
             },
-            onClose = { })
+            onClose = { _wsLive.value = false })
+    }
+
+    /**
+     * Resolve a phrase against the PC's IR database.
+     *
+     * This is the path that makes Capri trustworthy: the server looks up a
+     * stored waveform instead of having a model invent pulse timings. It goes
+     * over REST even when the WebSocket is live, because the answer arrives
+     * once and needs no streaming.
+     */
+    fun resolveIr(query: String) = viewModelScope.launch {
+        if (query.isBlank()) return@launch
+        _messages.value += ChatMessage(true, "[resolve] $query")
+        try {
+            handleServerResponse(net.resolveIr(query))
+        } catch (e: Exception) {
+            _messages.value += ChatMessage(false, "resolve error: ${e.message}")
+        }
     }
 
     /** Recent transcript as (isUser, text) pairs, oldest first. */
@@ -239,6 +262,10 @@ $advice" else ""
                     else -> "unknown ui_action: $what"
                 }
             }
+            // Inventory actions carry their own report in `explanation`; there
+            // is nothing to execute on the phone, so show what the PC found.
+            "network_scan", "ble_scan" ->
+                p.explanation.ifBlank { "scan returned no devices" }
             else -> "no executable action (${p.action})"
         }
         _history.value = listOf(HistoryEntry(System.currentTimeMillis(), p.action,

@@ -13,7 +13,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 
 class Channel(str, Enum):
@@ -27,6 +27,8 @@ class ActionKind(str, Enum):
     execute_hid = "execute_hid"
     run_shell = "run_shell"
     ui_action = "ui_action"      # screen read / tap on the OWNER's own phone
+    network_scan = "network_scan"  # read-only inventory of the owner's LAN
+    ble_scan = "ble_scan"          # read-only Bluetooth LE inventory
     info_only = "info_only"
     net_inventory = "net_inventory"    # advisory: authorized LAN inventory
     bt_inventory = "bt_inventory"      # advisory: Bluetooth device inventory
@@ -41,7 +43,8 @@ EXECUTABLE_KINDS = frozenset({
 # Kinds that are pure advice and must never be executed.
 ADVISORY_KINDS = frozenset({
     ActionKind.info_only, ActionKind.net_inventory, ActionKind.bt_inventory,
-    ActionKind.hardening, ActionKind.ctf_answer})
+    ActionKind.network_scan, ActionKind.ble_scan, ActionKind.hardening,
+    ActionKind.ctf_answer})
 
 
 class ChatTurn(BaseModel):
@@ -54,12 +57,17 @@ class ProcessRequest(BaseModel):
     mode: str = Field(..., description="free-form task mode, e.g. 'analyze_ir', 'hid_help'")
     raw_data: str = Field("", description="raw payload: timings, logs, dump text")
     device_context: dict = Field(default_factory=dict)
+    # When true the server must NOT consult the language model: it resolves
+    # straight from the IR database and returns "no match" honestly. Used by
+    # the phone's "send exactly this" path and by tests.
+    irdb_only: bool = Field(False, description="resolve from the local DB only")
     session_id: str = Field("default", description="conversation id for server-side memory")
     history: List[ChatTurn] = Field(default_factory=list,
                                     description="client-side transcript, oldest first")
     persona: Optional[str] = Field(None, description="character voice for mode=companion")
     temperature: float = Field(0.1, ge=0.0, le=1.5)
     max_tokens: int = Field(1024, ge=64, le=8192)
+
 
 
 class ParseDumpRequest(BaseModel):
@@ -85,6 +93,10 @@ class AiActionResponse(BaseModel):
     params: dict = Field(default_factory=dict)
     explanation: str = ""
     confidence: float = Field(0.0, ge=0.0, le=1.0)
+
+    # Where the answer came from. "capricorn" means the language model wrote
+    # it (so its waveforms get vetted); anything else is deterministic code.
+    _provenance: str = PrivateAttr(default="offline")
 
     @field_validator("params")
     @classmethod

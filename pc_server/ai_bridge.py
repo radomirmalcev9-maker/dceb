@@ -115,8 +115,16 @@ OUTPUT: reply with ONE JSON object, no markdown fences, no prose outside it,
 matching exactly:
 {
   "status": "ok",
-  "action": "transmit_ir | execute_hid | run_shell | ui_action | info_only | net_inventory | bt_inventory | hardening | ctf_answer",
-  "params": { },
+  "action": "transmit_ir | execute_hid | run_shell | ui_action | network_scan | ble_scan | info_only | net_inventory | bt_inventory | hardening | ctf_answer",
+  "params": {
+    "frequency": 38000,
+    "duty_cycle": 0.33,
+    "pattern": [9000, 4500, 560, ...],
+    "protocol": "NEC",
+    "hid_script": "...",
+    "shell_cmd": "..."
+  },
+
   "explanation": "short explanation for the phone screen",
   "confidence": 0.0
 }
@@ -125,12 +133,24 @@ Action rules:
 - `transmit_ir`, `execute_hid`, `ui_action` are the only executable kinds and
   they run on the OWNER's phone/target. Every one of them needs a human tap on
   Approve, so only propose them when the data really supports it.
-- `info_only`, `net_inventory`, `bt_inventory`, `hardening`, `ctf_answer` are
-  advisory: analysis only, never executed.
+- `info_only`, `net_inventory`, `bt_inventory`, `network_scan`, `ble_scan`,
+  `hardening`, `ctf_answer` are advisory: analysis and inventory only, never
+  executed.
 - `params` for transmit_ir: {"frequency": int Hz, "duty_cycle": float,
   "pattern": [microseconds, alternating mark/space], "protocol": "NEC"}.
+  pattern values are integer microseconds, alternating mark/space.
+- Use "info_only" unless the data clearly decodes to a concrete signal/script.
 - Never invent HID scripts, shell commands or IR patterns for hardware you
-  cannot identify; fall back to `info_only` and explain what is missing.
+  cannot identify, and never for machines the owner does not control; fall
+  back to `info_only` and explain what is missing.
+- "ui_action" may only target the owner's OWN phone (read_screen, tap_text,
+  tap_xy, swipe, open_app). Never propose actions aimed at other people's
+  devices or accounts.
+- "network_scan" and "ble_scan" are INVENTORY ONLY: they list what answers on
+  the owner's own LAN or what Bluetooth LE devices are advertising nearby.
+  They are read-only. They never attack, exploit, intercept, jam or connect.
+  If the owner asks you to break into something, answer "info_only" and say
+  plainly that this server does not do that.
 """
 
 MODE_PROMPTS = {
@@ -541,12 +561,15 @@ class CapricornBridge:
                         max_tokens=max_tokens),
                 )
                 parsed = self._parse_model_json(text)
+                parsed._provenance = "capricorn"
                 self._last_error = None
                 return parsed
             except Exception as exc:
                 self._last_error = f"capricorn call failed: {type(exc).__name__}: {exc}"
                 log.error("capricorn call failed (%s), falling back to heuristics", exc)
-        return self._offline_analyze(user_payload, normalized)
+        offline = self._offline_analyze(user_payload, normalized)
+        offline._provenance = "offline"
+        return offline
 
     # ------------------------------------------------------------------ #
     @staticmethod

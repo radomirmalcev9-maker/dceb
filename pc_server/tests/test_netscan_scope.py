@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 import netscan as ns_mod
-from netscan import ScopeError, expand_target, scan
+from netscan import ScopeError, expand_target, scan, scan_report
 from schemas import NetScanRequest
 
 
@@ -23,23 +23,25 @@ def no_real_network(monkeypatch):
 
 def test_scan_requires_owner_confirmation():
     with pytest.raises(ScopeError):
-        scan("192.168.1.0/24", confirm_owner=False)
+        scan_report("192.168.1.0/24", confirm_owner=False)
 
 
 def test_scan_rejects_public_target_without_flag():
     with pytest.raises(ScopeError):
-        scan("8.8.8.8", confirm_owner=True)
+        scan_report("8.8.8.8", confirm_owner=True)
+    with pytest.raises(ScopeError):
+        scan("8.8.8.8")                      # discovery API refuses it too
 
 
 def test_scan_allows_public_target_with_explicit_flag():
-    result = scan("8.8.8.8", confirm_owner=True, allow_public=True, ports=[80])
+    result = scan_report("8.8.8.8", confirm_owner=True, allow_public=True, ports=[80])
     assert result["scanned_hosts"] == 1
-    assert result["results"][0]["host"] == "8.8.8.8"
+    assert result["target"] == "8.8.8.8"
 
 
 def test_scan_rejects_empty_port_list():
     with pytest.raises(ScopeError):
-        scan("192.168.1.0/24", confirm_owner=True, ports=[])
+        scan_report("192.168.1.0/24", confirm_owner=True, ports=[])
 
 
 def test_expand_target_caps_host_count():
@@ -55,7 +57,7 @@ def test_expand_target_rejects_unresolvable_host():
 # ------------------------------------------------------------------ behaviour
 
 def test_private_scan_reports_only_responding_host():
-    result = scan("192.168.50.0/24", confirm_owner=True, ports=[22, 80])
+    result = scan_report("192.168.50.0/24", confirm_owner=True, ports=[22, 80])
     assert result["scanned_hosts"] == 254
     opened = [h for h in result["results"] if h["open_ports"]]
     assert len(opened) == 1
@@ -65,14 +67,16 @@ def test_private_scan_reports_only_responding_host():
 
 
 def test_banner_grabbing_is_opt_in():
-    with_banners = scan("192.168.50.5", confirm_owner=True, ports=[80], grab_banner=True)
+    with_banners = scan_report("192.168.50.5", confirm_owner=True, ports=[80],
+                                grab_banner=True)
     assert with_banners["results"][0]["banners"]["80"].startswith("HTTP")
-    without = scan("192.168.50.5", confirm_owner=True, ports=[80], grab_banner=False)
+    without = scan_report("192.168.50.5", confirm_owner=True, ports=[80],
+                          grab_banner=False)
     assert without["results"][0]["banners"] == {}
 
 
 def test_single_host_target():
-    result = scan("192.168.50.5", confirm_owner=True, ports=[80])
+    result = scan_report("192.168.50.5", confirm_owner=True, ports=[80])
     assert result["scanned_hosts"] == 1
     assert result["hosts_with_open_ports"] == 1
 

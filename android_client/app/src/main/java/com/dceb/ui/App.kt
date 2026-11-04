@@ -299,11 +299,16 @@ private val QUICK_MODES = listOf(
 @Composable
 private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
     val scope = rememberCoroutineScope()
+    /** What the owner asks in plain words: "включи проектор epson". */
     var input by remember { mutableStateOf("") }
+    /** Raw payload for dump analysis: timings, logs, readings. */
+    var raw by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf("analyze_ir") }
     var status by remember { mutableStateOf("") }
     val messages by vm.messages.collectAsState()
     val pending by vm.pending.collectAsState()
+    val history by vm.history.collectAsState()
+    val wsLive by vm.wsLive.collectAsState()
 
     LaunchedEffect(Unit) { vm.connectStreaming() }
 
@@ -313,62 +318,109 @@ private fun AiScreen(context: Context, vm: AiViewModel, net: NetworkClient) {
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse")
 
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(
-                painter = painterResource(id = R.drawable.capri_avatar),
-                contentDescription = "Capri",
-                modifier = Modifier.size(40.dp).scale(pulse * 0.7f + 0.3f).clip(CircleShape))
-            Box(Modifier.size(12.dp).scale(pulse).background(Color(0xFF00E676), CircleShape))
-            Text("Capricorn AI Terminal", style = MaterialTheme.typography.titleLarge)
-        }
-        Text("Личный лабораторный ассистент: режимы, память диалога и анализ дампов "
-           + "только на твоих устройствах — каждое действие требует подтверждения.",
-             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(QUICK_MODES) { m ->
-                FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m) })
+        Column(Modifier.padding(16.dp).fillMaxSize(),
+               verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Image(
+                    painter = painterResource(id = R.drawable.capri_avatar),
+                    contentDescription = "Capri",
+                    modifier = Modifier.size(40.dp).scale(pulse * 0.7f + 0.3f).clip(CircleShape))
+                Box(Modifier.size(12.dp).scale(if (wsLive) pulse else 1f).background(
+                    if (wsLive) Color(0xFF00E676) else Color(0xFF8A8A8A), CircleShape))
+                Text("Capricorn AI Terminal", style = MaterialTheme.typography.titleLarge)
             }
-        }
-        LazyColumn(Modifier.weight(1f)) {
-            items(messages) { m ->
-                Text(if (m.fromUser) "▶ ${m.text}" else "◀ ${m.text}",
-                     style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        pending?.let { p ->
-            Card {
-                Column(Modifier.padding(8.dp)) {
-                    Text("Server suggests action: ${p.action}", style = MaterialTheme.typography.titleSmall)
-                    Text(p.explanation, style = MaterialTheme.typography.bodySmall)
-                    Row {
-                        Button(onClick = {
-                            // Explicit user approval — execution happens here, on tap only.
-                            scope.launch { status = vm.executePending(context) }
-                        }) { Text("Approve") }
-                        Button(onClick = { vm.dismissPending() }) { Text("Reject") }
-                    }
-                    if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall)
+            Text("Личный лабораторный ассистент: режимы, память диалога и анализ дампов "
+               + "только на твоих устройствах — каждое действие требует подтверждения.",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.secondary)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(QUICK_MODES) { m ->
+                    FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m) })
                 }
             }
-        }
-        OutlinedTextField(mode, { mode = it }, label = { Text("mode") })
-        OutlinedTextField(input, { input = it }, label = { Text("raw data / question") })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(Modifier.weight(1f)) {
+                items(messages) { m ->
+                    Text(if (m.fromUser) "▶ ${m.text}" else "◀ ${m.text}",
+                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            pending?.let { p ->
+                Card {
+                    Column(Modifier.padding(8.dp)) {
+                        Text("Server suggests action: ${p.action}",
+                             style = MaterialTheme.typography.titleSmall)
+                        Text(p.explanation, style = MaterialTheme.typography.bodySmall)
+                        Row {
+                            Button(onClick = {
+                                // Explicit user approval — execution happens here, on tap only.
+                                scope.launch { status = vm.executePending(context) }
+                            }) { Text("Approve") }
+                            Button(onClick = { vm.dismissPending() }) { Text("Reject") }
+                        }
+                        if (status.isNotEmpty()) {
+                            Text(status, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                input, { input = it },
+                label = { Text("скажи Capri, что сделать: «включи проектор epson»") },
+                modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.resolveIr(input) }, enabled = input.isNotBlank()) {
+                    Text("Найти сигнал")
+                }
+                OutlinedButton(onClick = { vm.send(mode, input) }, enabled = input.isNotBlank()) {
+                    Text("Спросить ИИ")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.send("network_scan", "") }) { Text("Сеть") }
+                OutlinedButton(onClick = { vm.send("ble_scan", "") }) { Text("Bluetooth") }
+                OutlinedButton(onClick = { vm.companionSay(context) }) { Text("Capri, скажи") }
+                OutlinedButton(onClick = { vm.resetSession() }) { Text("Clear memory") }
+            }
+            OutlinedTextField(raw, { raw = it }, label = { Text("raw data (дамп/тайминги)") },
+                              modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(mode, { mode = it }, label = { Text("mode") },
+                              modifier = Modifier.fillMaxWidth())
             Button(onClick = {
                 scope.launch {
-                    vm.send(mode, input)
-                    if (mode.startsWith("dump")) vm.sendDump(mode.removePrefix("dump:"), input)
+                    if (mode.startsWith("dump")) {
+                        vm.sendDump(mode.removePrefix("dump:"), raw)
+                    } else {
+                        vm.send(mode, raw)
+                    }
                 }
-            }) { Text("Send to server") }
-            OutlinedButton(onClick = { vm.resetSession() }) { Text("Clear memory") }
-            OutlinedButton(onClick = { vm.companionSay(context) }) { Text("Capri, скажи") }
+            }, enabled = raw.isNotBlank()) { Text("Отправить сырые данные") }
+
+            if (history.isNotEmpty()) {
+                Text("История действий", style = MaterialTheme.typography.titleSmall,
+                     modifier = Modifier.padding(top = 4.dp))
+                LazyColumn(Modifier.heightIn(max = 180.dp)) {
+                    items(history) { entry ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Text(entry.action + " · " + entry.outcome,
+                                 style = MaterialTheme.typography.bodySmall)
+                            Text(entry.explanation.take(120),
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.secondary)
+                            if (entry.outcome.startsWith("approved") ||
+                                entry.outcome.startsWith("repeated")) {
+                                TextButton(onClick = {
+                                    scope.launch { status = vm.repeat(entry, context) }
+                                }) { Text("Повторить") }
+                            }
+                        }
+                    }
+                }
+            }
         }
-    }
         // Capri lives in the lower part of the screen, above the input row.
         CapriCompanion(context, vm,
                        Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(240.dp))
     }
 }
-
