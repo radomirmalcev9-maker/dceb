@@ -7,3 +7,5 @@ dumps/*
 !dumps/.gitkeep
 logs/*
 !logs/.gitkeep
+archives/*
+!archives/.gitkeep
