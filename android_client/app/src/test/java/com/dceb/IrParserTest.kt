@@ -50,12 +50,16 @@ class IrParserTest {
 
     @Test
     fun necBitEncodingLsbFirst() {
-        // command 0x01 -> first data bit is 1 -> long space after first mark
-        val file = IrParser.parse(sampleParsed.replace("command: 0B", "command: 01"))
+        // NEC шлёт адрес первым и младшим битом вперёд: address 0x01 -> первый бит 1
+        val file = IrParser.parse(sampleParsed.replace("address: 04 00", "address: 01 00"))
         val s = file.signals[0]
-        // bits start at index 2: mark 560, space 1690 for bit=1
+        // биты начинаются с индекса 2: mark 560, space 1690 для бита 1
         assertEquals(560, s.pattern[2])
         assertEquals(1690, s.pattern[3])
+        // address 0x04 -> младший бит 0 -> короткий space
+        val zero = IrParser.parse(sampleParsed).signals[0]
+        assertEquals(560, zero.pattern[2])
+        assertEquals(560, zero.pattern[3])
     }
 
     @Test

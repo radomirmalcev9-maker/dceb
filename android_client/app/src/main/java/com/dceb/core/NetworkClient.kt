@@ -39,7 +39,7 @@ class NetworkClient {
         customBaseUrl.ifBlank { channel.baseUrl }.trimEnd('/')
 
     suspend fun health(): JSONObject = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url("$base()/api/v1/health").get().build()
+        val req = Request.Builder().url("${base()}/api/v1/health").get().build()
         http.newCall(req).execute().use { r ->
             JSONObject(r.body!!.string())
         }
@@ -86,14 +86,14 @@ class NetworkClient {
     suspend fun resetSession(): JSONObject = withContext(Dispatchers.IO) {
         val body = "{}".toRequestBody("application/json".toMediaType())
         val req = Request.Builder()
-            .url("$base()/api/v1/session/reset?session_id=$sessionId")
+            .url("${base()}/api/v1/session/reset?session_id=$sessionId")
             .post(body).build()
         http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
     }
 
     /** Archived chats: one entry per day (or an open session). */
     suspend fun archivesList(): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url("$base()/api/v1/archives").get().build()
+        val req = Request.Builder().url("${base()}/api/v1/archives").get().build()
         http.newCall(req).execute().use { r ->
             val arr = JSONObject(r.body!!.string()).getJSONArray("archives")
             List(arr.length()) { i ->
@@ -104,20 +104,20 @@ class NetworkClient {
     }
 
     suspend fun archiveStats(): JSONObject = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url("$base()/api/v1/archives/stats").get().build()
+        val req = Request.Builder().url("${base()}/api/v1/archives/stats").get().build()
         http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
     }
 
     suspend fun deleteArchive(name: String): JSONObject = withContext(Dispatchers.IO) {
         val enc = java.net.URLEncoder.encode(name, "UTF-8")
-        val req = Request.Builder().url("$base()/api/v1/archives/$enc").delete().build()
+        val req = Request.Builder().url("${base()}/api/v1/archives/$enc").delete().build()
         http.newCall(req).execute().use { r -> JSONObject(r.body!!.string()) }
     }
 
     suspend fun uploadDump(name: String, content: String): JSONObject = withContext(Dispatchers.IO) {
         val body = content.toRequestBody("text/plain".toMediaType())
         val req = Request.Builder()
-            .url("$base()/api/v1/dumps/upload?name=${name.replace(" ", "_")}")
+            .url("${base()}/api/v1/dumps/upload?name=${name.replace(" ", "_")}")
             .post(body).build()
         http.newCall(req).execute().use { JSONObject(it.body!!.string()) }
     }
@@ -131,7 +131,7 @@ class NetworkClient {
      */
     suspend fun resolveIr(query: String): JSONObject = withContext(Dispatchers.IO) {
         val enc = java.net.URLEncoder.encode(query, "UTF-8")
-        val req = Request.Builder().url("$base()/api/v1/irdb/resolve?q=$enc").get().build()
+        val req = Request.Builder().url("${base()}/api/v1/irdb/resolve?q=$enc").get().build()
         http.newCall(req).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -142,7 +142,7 @@ class NetworkClient {
     }
 
     suspend fun irdbCategories(): List<String> = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url("$base()/api/v1/irdb/categories").get().build()
+        val req = Request.Builder().url("${base()}/api/v1/irdb/categories").get().build()
         http.newCall(req).execute().use { r ->
             val arr = JSONObject(r.body!!.string()).getJSONArray("categories")
             List(arr.length()) { arr.getString(it) }
@@ -154,7 +154,7 @@ class NetworkClient {
             val enc = java.net.URLEncoder.encode(q, "UTF-8")
             val cat = category?.let { "&category=${java.net.URLEncoder.encode(it, "UTF-8")}" } ?: ""
             val req = Request.Builder()
-                .url("$base()/api/v1/irdb/search?q=$enc$cat")
+                .url("${base()}/api/v1/irdb/search?q=$enc$cat")
                 .get().build()
             http.newCall(req).execute().use { r ->
                 val arr = JSONObject(r.body!!.string()).getJSONArray("results")
@@ -171,7 +171,7 @@ class NetworkClient {
         withContext(Dispatchers.IO) {
             val enc = { s: String -> java.net.URLEncoder.encode(s, "UTF-8") }
             val req = Request.Builder()
-                .url("$base()/api/v1/irdb/file?category=${enc(category)}&brand=${enc(brand)}&model=${enc(model)}")
+                .url("${base()}/api/v1/irdb/file?category=${enc(category)}&brand=${enc(brand)}&model=${enc(model)}")
                 .get().build()
             http.newCall(req).execute().use { JSONObject(it.body!!.string()).getString("content") }
         }
@@ -186,7 +186,7 @@ class NetworkClient {
         withContext(Dispatchers.IO) {
             val json = JSONObject(map)
             val body = json.toString().toRequestBody("application/json".toMediaType())
-            val req = Request.Builder().url("$base()$path").post(body).build()
+            val req = Request.Builder().url("${base()}$path").post(body).build()
             http.newCall(req).execute().use { r ->
                 val text = r.body?.string().orEmpty()
                 if (!r.isSuccessful) {

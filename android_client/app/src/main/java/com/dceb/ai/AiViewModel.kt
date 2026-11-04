@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.dceb.core.HardwareProbe
 import com.dceb.core.HardwareStatus
 import com.dceb.core.NetworkClient
+import com.dceb.core.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -243,23 +244,25 @@ $advice" else ""
             }
             "ui_action" -> {
                 // UI automation on THIS device only, still behind the Approve tap.
-                if (!com.dceb.core.UiAutomationService.isEnabled())
-                    return@executePending "accessibility service not enabled (Settings → Device)"
-                val what = p.params.optString("do", "")
-                val arg = p.params.optString("arg", "")
-                when (what) {
-                    "read_screen" -> "screen: " + com.dceb.core.UiAutomationService.readScreen().take(500)
-                    "tap_text" -> "tap '$arg': " + com.dceb.core.UiAutomationService.tapText(arg)
-                    "tap_xy" -> {
-                        val parts = arg.split(",").map { it.trim().toFloatOrNull() ?: 0f }
-                        "tap(${parts[0]},${parts[1]}): " + com.dceb.core.UiAutomationService.tap(parts[0], parts[1])
+                if (!com.dceb.core.UiAutomationService.isEnabled()) {
+                    "accessibility service not enabled (Settings → Device)"
+                } else {
+                    val what = p.params.optString("do", "")
+                    val arg = p.params.optString("arg", "")
+                    when (what) {
+                        "read_screen" -> "screen: " + com.dceb.core.UiAutomationService.readScreen().take(500)
+                        "tap_text" -> "tap '$arg': " + com.dceb.core.UiAutomationService.tapText(arg)
+                        "tap_xy" -> {
+                            val parts = arg.split(",").map { it.trim().toFloatOrNull() ?: 0f }
+                            "tap(${parts[0]},${parts[1]}): " + com.dceb.core.UiAutomationService.tap(parts[0], parts[1])
+                        }
+                        "swipe" -> {
+                            val v = arg.split(",").map { it.trim().toFloatOrNull() ?: 0f }
+                            "swipe: " + com.dceb.core.UiAutomationService.swipe(v[0], v[1], v[2], v[3])
+                        }
+                        "open_app" -> "open $arg: " + com.dceb.core.UiAutomationService.openApp(arg)
+                        else -> "unknown ui_action: $what"
                     }
-                    "swipe" -> {
-                        val v = arg.split(",").map { it.trim().toFloatOrNull() ?: 0f }
-                        "swipe: " + com.dceb.core.UiAutomationService.swipe(v[0], v[1], v[2], v[3])
-                    }
-                    "open_app" -> "open $arg: " + com.dceb.core.UiAutomationService.openApp(arg)
-                    else -> "unknown ui_action: $what"
                 }
             }
             // Inventory actions carry their own report in `explanation`; there

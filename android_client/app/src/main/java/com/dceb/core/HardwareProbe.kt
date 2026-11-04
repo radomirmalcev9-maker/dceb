@@ -28,8 +28,9 @@ object HardwareProbe {
     suspend fun probe(context: Context): HardwareStatus {
         val root = RootShell.isRootAvailable
         val cir = context.getSystemService(Context.CONSUMER_IR_SERVICE) as? ConsumerIrManager
-        val irOk = cir?.hasIrEmitter == true
-        val ranges = cir?.carrierFrequencies?.map { it.min to it.max } ?: emptyList()
+        val irOk = cir?.hasIrEmitter() == true
+        val ranges = cir?.carrierFrequencies?.map { it.minFrequency to it.maxFrequency }
+            ?: emptyList()
 
         val configFs = if (root) {
             RootShell.exec("test -d /config/usb_gadget && echo yes").stdout.trim() == "yes"
