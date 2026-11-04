@@ -77,6 +77,14 @@ private fun DashboardScreen(health: org.json.JSONObject?, hwText: String,
         Text("Do Cats Eat Bats — Device", style = MaterialTheme.typography.titleLarge)
         Button(onClick = onProbe) { Text("Probe hardware (root)") }
         Button(onClick = onRefreshHealth) { Text("Ping PC server") }
+        Button(onClick = {
+            context.startActivity(android.content.Intent(
+                android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }) { Text("Enable UI automation (Accessibility)") }
+        Text("UI automation: ${if (com.dceb.core.UiAutomationService.isEnabled()) "ON" else "off — enable above"}",
+             style = MaterialTheme.typography.bodySmall)
         Text("Server health: ${health?.toString() ?: "—"}")
         Text(hwText, style = MaterialTheme.typography.bodyMedium)
     }

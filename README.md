@@ -120,3 +120,11 @@ gradlew.bat assembleDebug      # Windows
 Самопроверка в этом sandbox: `pytest tests/` → 9 passed, WS `/ws/v1/ai` отвечает,
 Kotlin-файлы проверены на баланс скобок (Android SDK здесь недоступен,
 поэтому APK здесь не собирался — собирайте на своём ПК по инструкции выше).
+
+## UI-автоматизация телефона (своего)
+
+`core/UiAutomationService.kt` (AccessibilityService): чтение экрана (`read_screen`),
+тап по тексту (`tap_text`), тап по координатам (`tap_xy`), свайп (`swipe`),
+запуск приложения (`open_app`). Включается в «Настройки → Спец. возможности»
+(кнопка на вкладке Device). Сервер может предлагать `action: "ui_action"` —
+выполнение строго за кнопкой Approve, только на своём устройстве.

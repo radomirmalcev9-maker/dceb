@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Do Cats Eat Bats</string>
+    <string name="accessibility_description">Do Cats Eat Bats UI automation: lets the
+        Capricorn assistant read this phone\'s own screen and tap on it. Works only on
+        this device and only for actions the owner approves.</string>
 </resources>
