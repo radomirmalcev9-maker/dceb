@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+irdb/*
+!irdb/.gitkeep
+dumps/*
+!dumps/.gitkeep
+logs/*
+!logs/.gitkeep
