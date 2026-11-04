@@ -70,14 +70,19 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
             onClose = { })
     }
 
+    /** Recent transcript as (isUser, text) pairs, oldest first. */
+    private fun historyPayload(): List<Pair<Boolean, String>> =
+        _messages.value.takeLast(20).map { it.fromUser to it.text }
+
     fun send(mode: String, rawData: String) = viewModelScope.launch {
+        val hist = historyPayload()          // prior turns, before this one
         _messages.value += ChatMessage(true, "[$mode] ${rawData.take(400)}")
         val ctx = mapOf("hw" to (_hw.value?.summary ?: ""))
         try {
             if (net.wsConnected) {
-                net.wsSend(mode, rawData, ctx)   // answer arrives via WS onMessage
+                net.wsSend(mode, rawData, ctx, hist)  // answer via WS onMessage
             } else {
-                handleServerResponse(net.process(mode, rawData, ctx))
+                handleServerResponse(net.process(mode, rawData, ctx, hist))
             }
         } catch (e: Exception) {
             _messages.value += ChatMessage(false, "error: ${e.message}")
@@ -85,12 +90,54 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
     }
 
     fun sendDump(dumpType: String, rawData: String) = viewModelScope.launch {
+        val hist = historyPayload()
         _messages.value += ChatMessage(true, "[dump:$dumpType] ${rawData.take(400)}")
         try {
-            handleServerResponse(net.parseDump(dumpType, rawData, emptyMap()))
+            handleServerResponse(net.parseDump(dumpType, rawData, emptyMap(), hist))
         } catch (e: Exception) {
             _messages.value += ChatMessage(false, "error: ${e.message}")
         }
+    }
+
+    /** Send a passive Bluetooth inventory for analysis (advisory only). */
+    fun sendBluetoothInventory(devices: List<com.dceb.core.BtDevice>) {
+        send("bluetooth", com.dceb.core.BtInventory.toDump(devices))
+    }
+
+    /**
+     * AUTHORIZED LAN inventory. `confirmOwner` must be true — only networks the
+     * owner controls. Returns a human-readable summary.
+     */
+    suspend fun netScan(target: String, ports: List<Int>, confirmOwner: Boolean,
+                        allowPublic: Boolean = false): String {
+        if (!confirmOwner) return "tick 'my network' first — authorized scope only"
+        return try {
+            val r = net.netScan(target, ports, confirmOwner, allowPublic)
+            val results = r.optJSONArray("results") ?: return "no results"
+            val lines = mutableListOf<String>()
+            for (i in 0 until results.length()) {
+                val h = results.getJSONObject(i)
+                val open = h.optJSONArray("open_ports")
+                val openPorts = (0 until (open?.length() ?: 0)).mapNotNull { j ->
+                    open?.optInt(j)?.takeIf { it > 0 } }
+                if (openPorts.isNotEmpty()) lines += "${h.optString("host")}: ${openPorts.joinToString()}"
+            }
+            val advice = r.optJSONObject("advice")?.optString("explanation").orEmpty()
+            (if (lines.isEmpty()) listOf("no open ports found")
+             else lines).joinToString("
+") + if (advice.isNotBlank()) "
+
+$advice" else ""
+        } catch (e: Exception) {
+            "scan failed: ${e.message}"
+        }
+    }
+
+    /** Forget the conversation on both the phone and the server. */
+    fun resetSession() = viewModelScope.launch {
+        runCatching { net.resetSession() }
+        _messages.value = emptyList()
+        _history.value = emptyList()
     }
 
     private fun handleServerResponse(resp: JSONObject) {
