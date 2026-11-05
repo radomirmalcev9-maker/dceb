@@ -17,7 +17,7 @@ object IrTransmitter {
     suspend fun transmit(context: Context, frequency: Int, pattern: IntArray): Boolean {
         // 1) Native API
         val cir = consumerIr(context)
-        if (cir?.hasIrEmitter == true) {
+        if (cir?.hasIrEmitter() == true) {
             runCatching {
                 cir.transmit(frequency, pattern)
                 return true
