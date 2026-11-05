@@ -17,8 +17,8 @@ data class HardwareStatus(
         appendLine("root: ${if (root) "OK" else "NO"}")
         appendLine("IR blaster: ${if (irBlaster) "OK ${irFrequencies.size} ranges" else "absent"}")
         appendLine("ConfigFS USB gadget: ${if (configFsUsbGadget) "OK" else "NO"}")
-        appendLine("HID gadget nodes: ${hidgDevices.ifEmpty { "none" }.joinToString()}")
-        appendLine("OTG serial: ${otgSerialDevices.ifEmpty { "none" }.joinToString()}")
+        appendLine("HID gadget nodes: ${hidgDevices.joinToString().ifEmpty { "none" }}")
+        appendLine("OTG serial: ${otgSerialDevices.joinToString().ifEmpty { "none" }}")
         appendLine("NFC: ${if (nfc) "OK" else "absent"}")
     }
 }
@@ -28,8 +28,8 @@ object HardwareProbe {
     suspend fun probe(context: Context): HardwareStatus {
         val root = RootShell.isRootAvailable
         val cir = context.getSystemService(Context.CONSUMER_IR_SERVICE) as? ConsumerIrManager
-        val irOk = cir?.hasIrEmitter == true
-        val ranges = cir?.carrierFrequencies?.map { it.min to it.max } ?: emptyList()
+        val irOk = cir?.hasIrEmitter() == true
+        val ranges = cir?.carrierFrequencies?.map { it.minFrequency to it.maxFrequency } ?: emptyList()
 
         val configFs = if (root) {
             RootShell.exec("test -d /config/usb_gadget && echo yes").stdout.trim() == "yes"

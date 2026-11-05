@@ -76,7 +76,7 @@ object IrParser {
         val addrBytes = hexBytes(address)
         val cmdBytes = hexBytes(command)
         return when (protocol.uppercase()) {
-            "NEC", "NECEXT" -> encode NecLike(addrBytes, cmdBytes, extended = protocol.uppercase() == "NECEXT")
+            "NEC", "NECEXT" -> encodeNecLike(addrBytes, cmdBytes, extended = protocol.uppercase() == "NECEXT")
             "SAMSUNG32" -> encodeSamsung32(addrBytes, cmdBytes)
             "RC5" -> encodeRc5(addrBytes, cmdBytes)
             "RC6" -> encodeRc6(addrBytes, cmdBytes)
@@ -91,7 +91,7 @@ object IrParser {
             .map { it.toInt(16).toByte() }.toByteArray()
 
     /** NEC: 9000/4500 header, 32 bits LSB-first, 560us bit cells, trailing mark. */
-    private fun encode NecLike(addr: ByteArray, cmd: ByteArray, extended: Boolean): IntArray {
+    private fun encodeNecLike(addr: ByteArray, cmd: ByteArray, extended: Boolean): IntArray {
         val a = if (extended && addr.size >= 2) {
             (addr[0].toInt() and 0xFF) or ((addr[1].toInt() and 0xFF) shl 8)
         } else if (addr.isNotEmpty()) addr[0].toInt() and 0xFF else 0

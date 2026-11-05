@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.dceb.core.HardwareProbe
 import com.dceb.core.HardwareStatus
 import com.dceb.core.NetworkClient
+import com.dceb.core.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -183,10 +184,7 @@ class AiViewModel(private val net: NetworkClient) : ViewModel() {
             }
             val advice = r.optJSONObject("advice")?.optString("explanation").orEmpty()
             (if (lines.isEmpty()) listOf("no open ports found")
-             else lines).joinToString("
-") + if (advice.isNotBlank()) "
-
-$advice" else ""
+             else lines).joinToString("\n") + if (advice.isNotBlank()) "\n\n$advice" else ""
         } catch (e: Exception) {
             "scan failed: ${e.message}"
         }
