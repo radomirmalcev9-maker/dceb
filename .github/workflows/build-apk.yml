@@ -41,39 +41,49 @@ jobs:
         env:
           VARIANT: ${{ inputs.variant || 'debug' }}
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/builds"
           chmod +x gradlew
+          if [ "$VARIANT" = "release" ]; then TASK=assembleRelease; else TASK=assembleDebug; fi
+          set +e
+          ./gradlew "$TASK" --no-daemon --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/builds/build-log.txt"
+          GRADLE_EXIT=${PIPESTATUS[0]}
+          set -e
+          echo "gradle exit code: $GRADLE_EXIT" | tee -a "$GITHUB_WORKSPACE/builds/build-log.txt"
+          if [ "$GRADLE_EXIT" -ne 0 ]; then
+            echo "::error::Gradle build failed with exit code $GRADLE_EXIT (see builds/build-log.txt in the branch)"
+            exit "$GRADLE_EXIT"
+          fi
           if [ "$VARIANT" = "release" ]; then
-            ./gradlew assembleRelease --no-daemon --stacktrace
             SRC="app/build/outputs/apk/release/app-release-unsigned.apk"
             [ -f "$SRC" ] || SRC="app/build/outputs/apk/release/app-release.apk"
           else
-            ./gradlew assembleDebug --no-daemon --stacktrace
             SRC="app/build/outputs/apk/debug/app-debug.apk"
           fi
-          mkdir -p "$GITHUB_WORKSPACE/builds"
           cp "$SRC" "$GITHUB_WORKSPACE/builds/DCEB-$VARIANT.apk"
           ls -lh "$GITHUB_WORKSPACE/builds/"
 
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DCEB-${{ inputs.variant || 'debug' }}-apk
-          path: builds/DCEB-${{ inputs.variant || 'debug' }}.apk
-          if-no-files-found: error
+          path: builds/
+          if-no-files-found: warn
 
-      # Готовый APK коммитится обратно в ветку, чтобы его можно было
-      # просто забрать через git pull / скачать с GitHub без артефактов.
+      # Готовый APK (и лог сборки) коммитится обратно в ветку, чтобы его
+      # можно было просто забрать через git pull / скачать с GitHub.
       # (путь builds/ не входит в push-триггер, повторного запуска не будет)
       - name: Commit APK back to branch
+        if: always()
         env:
           VARIANT: ${{ inputs.variant || 'debug' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f "builds/DCEB-$VARIANT.apk"
+          git add -f builds/ 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "APK не изменился, коммит не нужен"
           else
-            git commit -m "build: DCEB-$VARIANT.apk (GitHub Actions run ${{ github.run_id }})"
+            git commit -m "build: DCEB-$VARIANT result + log (GitHub Actions run ${{ github.run_id }})"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
