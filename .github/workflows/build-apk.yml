@@ -1,7 +1,14 @@
 name: Build APK
 
 # Ручной запуск: Actions -> Build APK -> Run workflow
+# (workflow_dispatch доступен только после попадания файла в ветку по умолчанию,
+#  поэтому для этой рабочей ветки также включён запуск по push)
 on:
+  push:
+    branches: ["arena/b567304c-dceb"]
+    paths:
+      - "android_client/**"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
     inputs:
       variant:
@@ -31,9 +38,11 @@ jobs:
 
       - name: Build APK
         working-directory: android_client
+        env:
+          VARIANT: ${{ inputs.variant || 'debug' }}
         run: |
           chmod +x gradlew
-          if [ "${{ inputs.variant }}" = "release" ]; then
+          if [ "$VARIANT" = "release" ]; then
             ./gradlew assembleRelease --no-daemon --stacktrace
             SRC="app/build/outputs/apk/release/app-release-unsigned.apk"
             [ -f "$SRC" ] || SRC="app/build/outputs/apk/release/app-release.apk"
@@ -42,26 +51,29 @@ jobs:
             SRC="app/build/outputs/apk/debug/app-debug.apk"
           fi
           mkdir -p "$GITHUB_WORKSPACE/builds"
-          cp "$SRC" "$GITHUB_WORKSPACE/builds/DCEB-${{ inputs.variant }}.apk"
+          cp "$SRC" "$GITHUB_WORKSPACE/builds/DCEB-$VARIANT.apk"
           ls -lh "$GITHUB_WORKSPACE/builds/"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DCEB-${{ inputs.variant }}-apk
-          path: builds/DCEB-${{ inputs.variant }}.apk
+          name: DCEB-${{ inputs.variant || 'debug' }}-apk
+          path: builds/DCEB-${{ inputs.variant || 'debug' }}.apk
           if-no-files-found: error
 
       # Готовый APK коммитится обратно в ветку, чтобы его можно было
       # просто забрать через git pull / скачать с GitHub без артефактов.
+      # (путь builds/ не входит в push-триггер, повторного запуска не будет)
       - name: Commit APK back to branch
+        env:
+          VARIANT: ${{ inputs.variant || 'debug' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f builds/DCEB-${{ inputs.variant }}.apk
+          git add -f "builds/DCEB-$VARIANT.apk"
           if git diff --cached --quiet; then
             echo "APK не изменился, коммит не нужен"
           else
-            git commit -m "build: DCEB-${{ inputs.variant }}.apk (GitHub Actions run ${{ github.run_id }})"
+            git commit -m "build: DCEB-$VARIANT.apk (GitHub Actions run ${{ github.run_id }})"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
