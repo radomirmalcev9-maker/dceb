@@ -5,10 +5,13 @@ name: Build APK
 #  поэтому для этой рабочей ветки также включён запуск по push)
 on:
   push:
-    branches: ["arena/b567304c-dceb"]
+    branches: ["arena/b567304c-dceb", "arena/f8acf9ab-dceb"]
     paths:
       - "android_client/**"
       - ".github/workflows/build-apk.yml"
+    # NB: при push inputs.variant пуст, поэтому ниже fallback = release:
+    # push в рабочую ветку собирает именно релиз. Debug при необходимости
+    # запускается вручную через workflow_dispatch (вариант debug).
   workflow_dispatch:
     inputs:
       variant:
@@ -39,7 +42,16 @@ jobs:
       - name: Build APK
         working-directory: android_client
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
+          # Необязательный постоянный ключ подписи релиза (GitHub secrets):
+          # RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD,
+          # RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD. Если секретов нет —
+          # сгенерируется временный ключ (APK встанет, но подпись будет
+          # каждый раз новой: обновление поверх старой версии не встанет).
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           mkdir -p "$GITHUB_WORKSPACE/builds"
           chmod +x gradlew
@@ -56,17 +68,40 @@ jobs:
           if [ "$VARIANT" = "release" ]; then
             SRC="app/build/outputs/apk/release/app-release-unsigned.apk"
             [ -f "$SRC" ] || SRC="app/build/outputs/apk/release/app-release.apk"
+            # У проекта нет signingConfig: Gradle отдаёт неподписанный APK,
+            # который на устройство не встанет. Подписываем вручную.
+            BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+            echo "build-tools: $BT" | tee -a "$GITHUB_WORKSPACE/builds/build-log.txt"
+            KS="$RUNNER_TEMP/release.keystore"
+            if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+              echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$KS"
+              KS_PASS="$RELEASE_KEYSTORE_PASSWORD"; KEY_ALIAS="$RELEASE_KEY_ALIAS"; KEY_PASS="$RELEASE_KEY_PASSWORD"
+              echo "release signing: keystore from secrets" | tee -a "$GITHUB_WORKSPACE/builds/build-log.txt"
+            else
+              keytool -genkeypair -keystore "$KS" -alias dceb -keyalg RSA -keysize 2048 \
+                -validity 10000 -storepass DCEB-release -keypass DCEB-release \
+                -dname "CN=DCEB (ephemeral CI key), OU=dceb, O=dceb" 2>/dev/null
+              KS_PASS="DCEB-release"; KEY_ALIAS="DCEB"; KEY_PASS="DCEB-release"
+              echo "::warning::release signing: EPHEMERAL key generated on runner (no RELEASE_KEYSTORE_BASE64 secret). APK installs, but signature changes every build."
+              echo "release signing: EPHEMERAL CI key (signature changes every build)" | tee -a "$GITHUB_WORKSPACE/builds/build-log.txt"
+            fi
+            "$BT/zipalign" -p -f 4 "$SRC" "$RUNNER_TEMP/aligned.apk"
+            "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$KS_PASS" --key-pass "pass:$KEY_PASS" \
+              --out "$GITHUB_WORKSPACE/builds/DCEB-release.apk" "$RUNNER_TEMP/aligned.apk"
+            "$BT/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/builds/DCEB-release.apk" \
+              | tee -a "$GITHUB_WORKSPACE/builds/build-log.txt"
           else
             SRC="app/build/outputs/apk/debug/app-debug.apk"
+            cp "$SRC" "$GITHUB_WORKSPACE/builds/DCEB-$VARIANT.apk"
           fi
-          cp "$SRC" "$GITHUB_WORKSPACE/builds/DCEB-$VARIANT.apk"
           ls -lh "$GITHUB_WORKSPACE/builds/"
 
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DCEB-${{ inputs.variant || 'debug' }}-apk
+          name: DCEB-${{ inputs.variant || 'release' }}-apk
           path: builds/
           if-no-files-found: warn
 
@@ -76,7 +111,7 @@ jobs:
       - name: Commit APK back to branch
         if: always()
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
