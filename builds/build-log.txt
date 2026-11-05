@@ -16,25 +16,135 @@ Daemon will be stopped at the end of the build
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :app:checkDebugAarMetadata FAILED
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:processDebugManifestForPackage
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:processDebugResources
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugStartupProfile
+
+> Task :app:compileDebugKotlin
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:103:34 Unresolved reference 'SettingsRepository'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:112:32 Unresolved reference 'SettingsRepository'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:117:24 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.String' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:118:27 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.String' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:119:33 Argument type mismatch: actual type is 'kotlin.collections.MutableMap<kotlin.String, kotlin.Any>', but 'kotlin.collections.Map<kotlin.String, kotlin.Any>' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:120:27 Argument type mismatch: actual type is 'kotlin.collections.List<kotlin.Pair<kotlin.Boolean, kotlin.String>>', but 'kotlin.collections.List<kotlin.Pair<kotlin.Boolean, kotlin.String>>' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:121:27 Unresolved reference 'SettingsRepository'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:121:27 Argument type mismatch: actual type is 'C', but 'kotlin.String?' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:121:54 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:122:31 Unresolved reference 'SettingsRepository'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:123:29 Unresolved reference 'SettingsRepository'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:123:29 Argument type mismatch: actual type is 'kotlin.Int', but 'kotlin.Int?' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:186:40 Syntax error: Expecting '"'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:186:40 Syntax error: Expecting ','.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:186:40 Syntax error: Incorrect template entry: .
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:189:1 Syntax error: Expecting ')'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ai/AiViewModel.kt:189:8 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:20:72 Unresolved reference 'joinToString'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:21:71 Unresolved reference 'joinToString'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:31:25 Function invocation 'hasIrEmitter()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:22 Argument type mismatch: actual type is 'kotlin.collections.List<R>?', but 'K?' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:47 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:51 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:56 Function invocation 'min()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:60 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:60 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
+fun <A, B> A.to(that: B): Pair<A, B>
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:66 Function invocation 'max()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:75 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/HardwareProbe.kt:32:75 Argument type mismatch: actual type is 'kotlin.collections.List<T>', but 'K' was expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:42:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:89:20 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:96:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:107:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:113:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:120:20 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:134:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:145:43 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:157:24 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:174:24 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/core/NetworkClient.kt:189:47 Function invocation 'base()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:78:16 Return type mismatch: expected 'kotlin.IntArray', actual 'java.io.Serializable'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:32 Function invocation 'encode()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:39 Unresolved reference 'NecLike'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:56 Syntax error: Expecting ')'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:56 Syntax error: Expecting a when-condition.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:58 Incompatible types 'kotlin.String' and 'kotlin.ByteArray'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:68 Unresolved reference 'extended'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:68 Only expressions are allowed in this context.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:79:111 Syntax error: Expecting '->'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:80:25 Syntax error: Expecting an expression, is-condition or in-condition.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:5 Function 'encode' without a body must be abstract.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:23 Syntax error: Expecting '('.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:24 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:31 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:32 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:36 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:38 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:47 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:49 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:52 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:54 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:63 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:65 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:73 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:75 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:82 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:83 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:85 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:94 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:94:94 Function declaration must have a name.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:95:21 Unresolved reference 'extended'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:95:33 Unresolved reference 'addr'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:96:14 Unresolved reference 'addr'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:96:14 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:96:45 Unresolved reference 'addr'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:96:45 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:97:20 Unresolved reference 'addr'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:97:39 Unresolved reference 'addr'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:97:39 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:98:21 Unresolved reference 'cmd'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:98:39 Unresolved reference 'cmd'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:98:39 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:105:24 Unresolved reference 'extended'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrParser.kt:109:16 Return type mismatch: expected 'kotlin.Unit', actual 'kotlin.IntArray'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ir/IrTransmitter.kt:20:18 Function invocation 'hasIrEmitter()' expected.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:110:22 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:110:22 Not enough information to infer type argument for 'T'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:110:31 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:110:33 Unresolved reference 'mutableFloatStateOf'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:111:22 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:111:22 Not enough information to infer type argument for 'T'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:111:31 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:111:33 Unresolved reference 'mutableFloatStateOf'.
+e: file:///home/runner/work/dceb/dceb/android_client/app/src/main/java/com/dceb/ui/CapriCompanion.kt:154:34 Unresolved reference 'collectAsState'.
+
+> Task :app:compileDebugKotlin FAILED
+> Task :app:mergeExtDexDebug
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':app:checkDebugAarMetadata'.
-> Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
-   > Could not find com.github.topjohnwu.libsu:core:5.2.0.
-     Searched in the following locations:
-       - https://dl.google.com/dl/android/maven2/com/github/topjohnwu/libsu/core/5.2.0/core-5.2.0.pom
-       - https://repo.maven.apache.org/maven2/com/github/topjohnwu/libsu/core/5.2.0/core-5.2.0.pom
-     Required by:
-         project :app
-   > Could not find com.github.topjohnwu.libsu:service:5.2.0.
-     Searched in the following locations:
-       - https://dl.google.com/dl/android/maven2/com/github/topjohnwu/libsu/service/5.2.0/service-5.2.0.pom
-       - https://repo.maven.apache.org/maven2/com/github/topjohnwu/libsu/service/5.2.0/service-5.2.0.pom
-     Required by:
-         project :app
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
 
 * Try:
 > Run with --info or --debug option to get more log output.
@@ -42,8 +152,16 @@ Execution failed for task ':app:checkDebugAarMetadata'.
 > Get more help at https://help.gradle.org.
 
 * Exception is:
-org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:checkDebugAarMetadata'.
-	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:38)
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileDebugKotlin'.
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:130)
+	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:293)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:128)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:116)
+	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
@@ -66,30 +184,33 @@ org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:che
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
-Caused by: org.gradle.api.internal.artifacts.ivyservice.TypedResolveException: Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
-	at org.gradle.api.internal.artifacts.ResolveExceptionMapper.mapFailures(ResolveExceptionMapper.java:56)
-	at org.gradle.api.internal.artifacts.configurations.DefaultConfiguration$DefaultResolutionHost.mapFailure(DefaultConfiguration.java:1984)
-	at org.gradle.api.internal.artifacts.configurations.ResolutionHost.rethrowFailure(ResolutionHost.java:48)
-	at org.gradle.api.internal.artifacts.configurations.ResolutionBackedFileCollection.maybeThrowResolutionFailures(ResolutionBackedFileCollection.java:84)
-	at org.gradle.api.internal.artifacts.configurations.ResolutionBackedFileCollection.visitContents(ResolutionBackedFileCollection.java:74)
-	at org.gradle.api.internal.file.AbstractFileCollection.visitStructure(AbstractFileCollection.java:360)
-	at org.gradle.api.internal.file.CompositeFileCollection.lambda$visitContents$0(CompositeFileCollection.java:113)
-	at org.gradle.api.internal.file.collections.UnpackingVisitor.add(UnpackingVisitor.java:67)
-	at org.gradle.api.internal.file.collections.UnpackingVisitor.add(UnpackingVisitor.java:92)
-	at org.gradle.api.internal.file.DefaultFileCollectionFactory$ResolvingFileCollection.visitChildren(DefaultFileCollectionFactory.java:306)
-	at org.gradle.api.internal.file.CompositeFileCollection.visitContents(CompositeFileCollection.java:113)
-	at org.gradle.api.internal.file.AbstractFileCollection.visitStructure(AbstractFileCollection.java:360)
-	at org.gradle.api.internal.file.CompositeFileCollection.lambda$visitContents$0(CompositeFileCollection.java:113)
-	at org.gradle.api.internal.tasks.PropertyFileCollection.visitChildren(PropertyFileCollection.java:48)
-	at org.gradle.api.internal.file.CompositeFileCollection.visitContents(CompositeFileCollection.java:113)
-	at org.gradle.api.internal.file.AbstractFileCollection.visitStructure(AbstractFileCollection.java:360)
-	at org.gradle.internal.fingerprint.impl.DefaultFileCollectionSnapshotter.snapshot(DefaultFileCollectionSnapshotter.java:47)
-	at org.gradle.internal.execution.impl.DefaultInputFingerprinter$InputCollectingVisitor.visitInputFileProperty(DefaultInputFingerprinter.java:133)
-	at org.gradle.api.internal.tasks.execution.TaskExecution.visitRegularInputs(TaskExecution.java:324)
-	at org.gradle.internal.execution.impl.DefaultInputFingerprinter.fingerprintInputProperties(DefaultInputFingerprinter.java:63)
-	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.captureExecutionStateWithOutputs(AbstractCaptureStateBeforeExecutionStep.java:109)
-	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.lambda$captureExecutionState$0(AbstractCaptureStateBeforeExecutionStep.java:74)
-	at org.gradle.internal.execution.steps.BuildOperationStep$1.call(BuildOperationStep.java:37)
+Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:287)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:130)
+	at org.gradle.internal.Factories$1.create(Factories.java:31)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:335)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:318)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLock(DefaultWorkerLeaseService.java:323)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:126)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:92)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:78)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:66)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:252)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:229)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:212)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:195)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:162)
+	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:105)
+	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:44)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:59)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:56)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
@@ -97,12 +218,47 @@ Caused by: org.gradle.api.internal.artifacts.ivyservice.TypedResolveException: C
 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
-	at org.gradle.internal.execution.steps.BuildOperationStep.operation(BuildOperationStep.java:34)
-	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.captureExecutionState(AbstractCaptureStateBeforeExecutionStep.java:69)
-	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:62)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:56)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:44)
+	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:50)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:28)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:67)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:37)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:61)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:26)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:40)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:29)
+	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:189)
+	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:75)
+	at org.gradle.internal.Either$Right.fold(Either.java:175)
+	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:73)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:48)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:65)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:36)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:107)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:56)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:64)
 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:43)
 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:125)
-	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:56)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:61)
 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
@@ -152,20 +308,39 @@ Caused by: org.gradle.api.internal.artifacts.ivyservice.TypedResolveException: C
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
-Cause 1: org.gradle.internal.resolve.ModuleVersionNotFoundException: Could not find com.github.topjohnwu.libsu:core:5.2.0.
-Searched in the following locations:
-  - https://dl.google.com/dl/android/maven2/com/github/topjohnwu/libsu/core/5.2.0/core-5.2.0.pom
-  - https://repo.maven.apache.org/maven2/com/github/topjohnwu/libsu/core/5.2.0/core-5.2.0.pom
-Required by:
-    project :app
-Cause 2: org.gradle.internal.resolve.ModuleVersionNotFoundException: Could not find com.github.topjohnwu.libsu:service:5.2.0.
-Searched in the following locations:
-  - https://dl.google.com/dl/android/maven2/com/github/topjohnwu/libsu/service/5.2.0/service-5.2.0.pom
-  - https://repo.maven.apache.org/maven2/com/github/topjohnwu/libsu/service/5.2.0/service-5.2.0.pom
-Required by:
-    project :app
+Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
+	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:119)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:76)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:63)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:66)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:62)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:100)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:62)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:59)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:174)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+	at org.gradle.internal.Factories$1.create(Factories.java:31)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:263)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+	... 2 more
 
 
-BUILD FAILED in 1m 16s
-1 actionable task: 1 executed
+BUILD FAILED in 1m 41s
+22 actionable tasks: 22 executed
 gradle exit code: 1
