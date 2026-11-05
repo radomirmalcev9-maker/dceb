@@ -5,10 +5,13 @@ name: Build APK
 #  поэтому для этой рабочей ветки также включён запуск по push)
 on:
   push:
-    branches: ["arena/b567304c-dceb"]
+    branches: ["arena/b567304c-dceb", "arena/f8acf9ab-dceb"]
     paths:
       - "android_client/**"
       - ".github/workflows/build-apk.yml"
+    # NB: при push inputs.variant пуст, поэтому ниже fallback = release:
+    # push в рабочую ветку собирает именно релиз. Debug при необходимости
+    # запускается вручную через workflow_dispatch (вариант debug).
   workflow_dispatch:
     inputs:
       variant:
@@ -39,7 +42,7 @@ jobs:
       - name: Build APK
         working-directory: android_client
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           # Необязательный постоянный ключ подписи релиза (GitHub secrets):
           # RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD,
           # RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD. Если секретов нет —
@@ -98,7 +101,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DCEB-${{ inputs.variant || 'debug' }}-apk
+          name: DCEB-${{ inputs.variant || 'release' }}-apk
           path: builds/
           if-no-files-found: warn
 
@@ -108,7 +111,7 @@ jobs:
       - name: Commit APK back to branch
         if: always()
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
